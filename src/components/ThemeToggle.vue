@@ -1,24 +1,26 @@
 <script setup lang="ts">
 import { useThemeStore } from '@/stores/theme'
 import { MoonIcon, SunIcon } from '@heroicons/vue/24/solid'
+import { computed } from 'vue'
 
 const themeStore = useThemeStore()
-const toggleTheme = () => themeStore.toggleTheme()
+const isLight = computed({
+  get: () => themeStore.theme === 'light',
+  set: (v: boolean) => {
+    themeStore.theme = v ? 'light' : 'dark'
+    localStorage.setItem('theme', themeStore.theme)
+  },
+})
 </script>
 
 <template>
   <div class="theme-toggle-wrapper">
-    <!-- Moon Icon (left) -->
-    <MoonIcon class="toggle-icon" />
-
-    <!-- Rounded switch -->
+    <MoonIcon class="toggle-icon" :style="{ opacity: isLight ? 0.4 : 1 }" />
     <label class="switch">
-      <input type="checkbox" :checked="themeStore.theme === 'light'" @click="toggleTheme" />
+      <input type="checkbox" v-model="isLight" />
       <span class="slider round"></span>
     </label>
-
-    <!-- Sun Icon (right) -->
-    <SunIcon class="toggle-icon" />
+    <SunIcon class="toggle-icon" :style="{ opacity: isLight ? 1 : 0.4 }" />
   </div>
 </template>
 

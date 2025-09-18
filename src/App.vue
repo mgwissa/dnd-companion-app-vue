@@ -1,31 +1,35 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import ThemeToggle from './components/ThemeToggle.vue'
+import DndToast from './components/DndToast.vue'
+import { getToastState } from './composables/useToast'
 </script>
 
 <template>
-  <header class="bg-white dark:bg-gray-800 shadow-sm">
-    <ThemeToggle />
-    <nav class="container mx-auto px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <RouterLink
-          to="/"
-          class="text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300"
-          >Home</RouterLink
-        >
-        <RouterLink
-          to="/notes"
-          class="text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300"
-          >Notes</RouterLink
-        >
-        <RouterLink
-          to="/about"
-          class="text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-300"
-          >About</RouterLink
-        >
+  <div class="site-root">
+    <header class="banner">
+      <div class="banner-inner">
+        <div class="brand">
+          <RouterLink to="/" class="brand-title">DND Companion</RouterLink>
+          <div class="brand-sub">Campaign tools & notes</div>
+        </div>
+        <div class="controls">
+          <ThemeToggle />
+        </div>
       </div>
-    </nav>
-  </header>
 
-  <RouterView class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white" />
+      <nav class="nav">
+        <RouterLink to="/" class="nav-link">Home</RouterLink>
+        <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
+        <RouterLink to="/about" class="nav-link">About</RouterLink>
+        <RouterLink to="/login" class="nav-link">Login</RouterLink>
+      </nav>
+    </header>
+
+    <main class="page-wrap">
+      <RouterView />
+      <!-- global toast mounted at app root -->
+      <DndToast :toast="getToastState()" />
+    </main>
+  </div>
 </template>
