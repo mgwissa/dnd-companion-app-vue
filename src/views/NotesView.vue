@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { showToast, clearToastTimer } from '@/composables/useToast'
 
-type Note = { id: string; title: string; body: string; updatedAt: number }
+type Note = { id: string; title: string; body: string; updatedAt: number; tags?: string[] }
 
 const STORAGE_KEY = 'dnd_notes_v1'
 
@@ -12,6 +12,12 @@ const activeId = ref<string | null>(null)
 // editor fields (detached from the source note so we can show "Unsaved changes")
 const title = ref('')
 const body = ref('')
+const editorTags = ref<string[]>([])
+
+// search and tag filter (sidebar)
+const searchQuery = ref('')
+const selectedTagFilters = ref<string[]>([])
+const newTagInput = ref('')
 
 // new note inputs
 const newTitle = ref('')
@@ -37,7 +43,11 @@ function loadNotesFromStorage() {
     // basic shape guard
     notes.value = parsed
       .filter((n) => typeof n.id === 'string')
-      .map((n) => ({ ...n, updatedAt: Number(n.updatedAt) || Date.now() }))
+      .map((n) => ({
+        ...n,
+        updatedAt: Number(n.updatedAt) || Date.now(),
+        tags: Array.isArray(n.tags) ? n.tags : [],
+      }))
       .sort((a, b) => b.updatedAt - a.updatedAt)
   } catch (e) {
     console.warn('Failed to load notes', e)
@@ -50,6 +60,7 @@ function createNote() {
     title: newTitle.value.trim() || `Untitled ${notes.value.length + 1}`,
     body: newBody.value,
     updatedAt: Date.now(),
+    tags: [],
   }
   notes.value.unshift(n)
   selectNote(n.id)
@@ -63,9 +74,9 @@ function selectNote(id: string) {
   const n = notes.value.find((x) => x.id === id)
   if (!n) return
   activeId.value = id
-  // load into editor
   title.value = n.title
   body.value = n.body
+  editorTags.value = [...(n.tags ?? [])]
 }
 
 function deleteNote(id: string) {
@@ -76,6 +87,7 @@ function deleteNote(id: string) {
     activeId.value = null
     title.value = ''
     body.value = ''
+    editorTags.value = []
   }
   showToast('Deleted', 'error')
 }
@@ -102,7 +114,11 @@ function importNotes(file: File | null) {
       for (const n of parsed) {
         if (!n?.id) continue
         const existing = byId.get(n.id)
-        const incoming = { ...n, updatedAt: Number(n.updatedAt) || Date.now() }
+        const incoming = {
+          ...n,
+          updatedAt: Number(n.updatedAt) || Date.now(),
+          tags: Array.isArray(n.tags) ? n.tags : [],
+        }
         if (!existing || incoming.updatedAt > existing.updatedAt) {
           byId.set(n.id, incoming)
         }
@@ -114,6 +130,7 @@ function importNotes(file: File | null) {
         if (cur) {
           title.value = cur.title
           body.value = cur.body
+          editorTags.value = [...(cur.tags ?? [])]
         }
       }
       showToast('Imported', 'info')
@@ -138,6 +155,7 @@ function saveActive() {
     ...notes.value[i],
     title: title.value,
     body: body.value,
+    tags: [...editorTags.value],
     updatedAt: Date.now(),
   }
   showToast('Saved', 'success')
@@ -146,6 +164,42 @@ function saveActive() {
 function deleteActive() {
   if (activeId.value) deleteNote(activeId.value)
   showToast('Deleted', 'error')
+}
+
+function toggleTagFilter(tag: string) {
+  const i = selectedTagFilters.value.indexOf(tag)
+  if (i === -1) selectedTagFilters.value = [...selectedTagFilters.value, tag]
+  else selectedTagFilters.value = selectedTagFilters.value.filter((_, j) => j !== i)
+}
+
+function clearFilters() {
+  searchQuery.value = ''
+  selectedTagFilters.value = []
+}
+
+function addTag(tag: string) {
+  const t = tag.trim()
+  if (!t || editorTags.value.includes(t)) return
+  editorTags.value = [...editorTags.value, t]
+}
+
+function addTagFromInput() {
+  addTag(newTagInput.value)
+  newTagInput.value = ''
+}
+
+function removeTag(index: number) {
+  editorTags.value = editorTags.value.filter((_, i) => i !== index)
+}
+
+function formatDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: new Date(ms).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 // persist to localStorage
@@ -171,320 +225,824 @@ onBeforeUnmount(() => {
 })
 
 const sortedNotes = computed(() => notes.value.slice().sort((a, b) => b.updatedAt - a.updatedAt))
-const activeNote = computed(() => notes.value.find((n) => n.id === activeId.value) ?? null)
-const unsaved = computed(() =>
-  activeNote.value
-    ? activeNote.value.title !== title.value || activeNote.value.body !== body.value
-    : false,
+
+const allTags = computed(() => {
+  const set = new Set<string>()
+  notes.value.forEach((n) => (n.tags ?? []).forEach((t) => set.add(t)))
+  return [...set].sort((a, b) => a.localeCompare(b))
+})
+
+const filteredNotes = computed(() => {
+  let list = sortedNotes.value
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(
+      (n) =>
+        n.title.toLowerCase().includes(q) || (n.body || '').toLowerCase().includes(q),
+    )
+  }
+  const selected = selectedTagFilters.value
+  if (selected.length > 0) {
+    list = list.filter((n) => {
+      const noteTags = (n.tags ?? []).map((t) => t.toLowerCase())
+      return selected.every((s) => noteTags.includes(s.toLowerCase()))
+    })
+  }
+  return list
+})
+
+const hasActiveFilters = computed(
+  () => searchQuery.value.trim() !== '' || selectedTagFilters.value.length > 0,
 )
+
+const activeNote = computed(() => notes.value.find((n) => n.id === activeId.value) ?? null)
+
+function tagsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const sa = [...a].sort()
+  const sb = [...b].sort()
+  return sa.every((t, i) => t === sb[i])
+}
+
+const unsaved = computed(() => {
+  if (!activeNote.value) return false
+  if (
+    activeNote.value.title !== title.value ||
+    activeNote.value.body !== body.value
+  )
+    return true
+  return !tagsEqual(activeNote.value.tags ?? [], editorTags.value)
+})
 </script>
 
 <template>
-  <main class="notes-root p-6 mx-auto">
-    <h1 class="notes-title">Notes</h1>
-
-    <section class="notes-grid">
-      <aside class="notes-sidebar">
-        <div class="mb-3">
-          <input v-model="newTitle" placeholder="New note title" class="editor-title creator" />
-        </div>
-        <div class="mb-3">
-          <textarea
-            v-model="newBody"
-            rows="4"
-            placeholder="Write something..."
-            class="editor-body creator resize-none"
-          ></textarea>
-        </div>
-        <div class="notes-actions">
-          <button class="btn primary" @click="createNote">Add</button>
-          <button class="btn" @click="exportNotes">Export</button>
-          <label class="btn cursor-pointer">
-            Import
-            <input type="file" accept="application/json" class="hidden" @change="onFileChange" />
-          </label>
-        </div>
-
-        <hr class="my-3" />
-
-        <div class="notes-list">
-          <div v-if="sortedNotes.length === 0" class="notes-empty">No notes yet</div>
-
-          <div
-            v-for="n in sortedNotes"
-            :key="n.id"
-            class="note-row"
-            :class="{ active: n.id === activeId }"
+  <main class="notes-page" role="main">
+    <div class="notes-layout">
+      <!-- Sidebar: search, filters, new note form, list -->
+      <aside class="sidebar" aria-label="Notes list and actions">
+        <header class="sidebar-header">
+          <h1 class="page-title">Notes</h1>
+          <form
+            class="search-form"
+            role="search"
+            aria-label="Search notes"
+            @submit.prevent
           >
-            <button class="note-info" @click="selectNote(n.id)" :aria-pressed="n.id === activeId">
-              <div class="note-title">{{ n.title }}</div>
-              <div class="note-meta">{{ new Date(n.updatedAt).toLocaleString() }}</div>
-            </button>
-            <div class="note-actions">
-              <button class="link-delete" @click="deleteNote(n.id)">Delete</button>
+            <label for="notes-search" class="visually-hidden">Search notes</label>
+            <input
+              id="notes-search"
+              v-model="searchQuery"
+              type="search"
+              class="search-input"
+              placeholder="Search..."
+              autocomplete="off"
+              aria-describedby="search-desc"
+            />
+            <span id="search-desc" class="visually-hidden">Matches title and body text</span>
+          </form>
+          <div v-if="allTags.length > 0" class="filters">
+            <span class="filters-label" id="filter-label">Filter by tag</span>
+            <div class="tag-filters" role="group" aria-labelledby="filter-label">
+              <button
+                v-for="tag in allTags"
+                :key="tag"
+                type="button"
+                class="tag-filter"
+                :class="{ 'tag-filter--on': selectedTagFilters.includes(tag) }"
+                :aria-pressed="selectedTagFilters.includes(tag)"
+                @click="toggleTagFilter(tag)"
+              >
+                {{ tag }}
+              </button>
+              <button
+                v-if="hasActiveFilters"
+                type="button"
+                class="tag-filter-clear"
+                @click="clearFilters"
+              >
+                Clear
+              </button>
             </div>
           </div>
-        </div>
+        </header>
+
+        <section class="new-note" aria-labelledby="new-note-heading">
+          <h2 id="new-note-heading" class="section-heading">New note</h2>
+          <div class="new-note-fields">
+            <label for="new-title" class="visually-hidden">New note title</label>
+            <input
+              id="new-title"
+              v-model="newTitle"
+              type="text"
+              class="input input--title"
+              placeholder="Title"
+              @keydown.enter.prevent="newBody && createNote()"
+            />
+            <label for="new-body" class="visually-hidden">New note content</label>
+            <textarea
+              id="new-body"
+              v-model="newBody"
+              class="input input--body"
+              rows="3"
+              placeholder="Write something..."
+              @keydown.ctrl.enter.prevent="createNote()"
+            />
+            <div class="new-note-actions">
+              <button type="button" class="btn btn--primary" @click="createNote">
+                Add note
+              </button>
+              <div class="toolbar-group">
+                <button type="button" class="btn btn--secondary" @click="exportNotes">
+                  Export
+                </button>
+                <label class="btn btn--secondary btn--file">
+                  Import
+                  <input
+                    type="file"
+                    accept="application/json"
+                    class="file-input"
+                    aria-label="Import notes from JSON"
+                    @change="onFileChange"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <nav class="notes-nav" aria-label="Your notes">
+          <h2 class="section-heading">Your notes</h2>
+          <div v-if="notes.length === 0" class="empty-state">
+            <p>No notes yet. Create one above.</p>
+          </div>
+          <div v-else-if="filteredNotes.length === 0" class="empty-state">
+            <p>No notes match your search or filters.</p>
+          </div>
+          <ul v-else class="notes-list" role="list">
+            <li
+              v-for="n in filteredNotes"
+              :key="n.id"
+              class="note-item"
+              :class="{ 'note-item--active': n.id === activeId }"
+            >
+              <button
+                type="button"
+                class="note-item-button"
+                :aria-current="n.id === activeId ? 'true' : undefined"
+                @click="selectNote(n.id)"
+              >
+                <span class="note-item-title">{{ n.title }}</span>
+                <span v-if="(n.tags ?? []).length" class="note-item-tags">
+                  <span
+                    v-for="t in (n.tags ?? []).slice(0, 3)"
+                    :key="t"
+                    class="note-item-tag"
+                  >
+                    {{ t }}
+                  </span>
+                </span>
+                <time
+                  class="note-item-time"
+                  :datetime="new Date(n.updatedAt).toISOString()"
+                >
+                  {{ formatDate(n.updatedAt) }}
+                </time>
+              </button>
+              <button
+                type="button"
+                class="note-item-delete"
+                aria-label="Delete this note"
+                @click.stop="deleteNote(n.id)"
+              >
+                Delete
+              </button>
+            </li>
+          </ul>
+        </nav>
       </aside>
 
-      <section class="notes-editor">
-        <div class="editor-head">
-          <input v-model="title" placeholder="Title" class="editor-title" :disabled="!activeId" />
-          <div class="editor-controls">
-            <span class="status">
-              {{ activeId ? (unsaved ? 'Unsaved changes' : 'Editing') : 'No note selected' }}
-            </span>
-            <div class="editor-buttons">
-              <button class="btn" @click="saveActive" :disabled="!activeId">Save</button>
-              <button class="btn danger" @click="deleteActive" :disabled="!activeId">Delete</button>
+      <!-- Editor -->
+      <article
+        class="editor"
+        :class="{ 'editor--empty': !activeId }"
+        aria-label="Note editor"
+      >
+        <template v-if="activeId">
+          <header class="editor-header">
+            <label for="editor-title" class="visually-hidden">Note title</label>
+            <input
+              id="editor-title"
+              v-model="title"
+              type="text"
+              class="editor-title-input"
+              placeholder="Title"
+            />
+            <div class="editor-toolbar">
+              <span class="editor-status" aria-live="polite">
+                {{ unsaved ? 'Unsaved changes' : 'Saved' }}
+              </span>
+              <div class="editor-actions">
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  :disabled="!unsaved"
+                  @click="saveActive"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--danger"
+                  aria-label="Delete this note"
+                  @click="deleteActive"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div class="editor-tags">
+            <span class="editor-tags-label">Tags</span>
+            <div class="editor-tags-list">
+              <span
+                v-for="(t, i) in editorTags"
+                :key="t"
+                class="tag"
+              >
+                {{ t }}
+                <button
+                  type="button"
+                  class="tag-remove"
+                  :aria-label="`Remove tag ${t}`"
+                  @click="removeTag(i)"
+                >
+                  ×
+                </button>
+              </span>
+              <input
+                v-model="newTagInput"
+                type="text"
+                class="tag-input"
+                placeholder="Add tag"
+                aria-label="Add tag"
+                @keydown.enter.prevent="addTagFromInput()"
+              />
+              <button type="button" class="btn btn--small" @click="addTagFromInput">
+                Add
+              </button>
             </div>
           </div>
-        </div>
 
-        <div>
+          <label for="editor-body" class="visually-hidden">Note content</label>
           <textarea
+            id="editor-body"
             v-model="body"
-            rows="14"
-            placeholder="Your note..."
-            class="editor-body"
-            :disabled="!activeId"
-          ></textarea>
-
-          <!-- toast rendered by global <Toast/> component -->
+            class="editor-body-input"
+            rows="16"
+            placeholder="Write your note..."
+          />
+        </template>
+        <div v-else class="editor-empty">
+          <p>Select a note from the list or create a new one.</p>
         </div>
-      </section>
-    </section>
+      </article>
+    </div>
   </main>
 </template>
 
 <style scoped>
-/* Desktop-first layout polish */
-.notes-root {
-  padding-top: 2.5rem;
-}
-.notes-title {
-  font-family: 'Cinzel', serif;
-  font-size: 2.25rem;
-  margin-bottom: 1.5rem;
-  color: var(--dnd-ink);
-  text-align: center;
+/* Design tokens */
+.notes-page {
+  --notes-space-xs: 0.25rem;
+  --notes-space-sm: 0.5rem;
+  --notes-space-md: 1rem;
+  --notes-space-lg: 1.5rem;
+  --notes-space-xl: 2rem;
+  --notes-radius: 8px;
+  --notes-radius-lg: 12px;
+  --notes-sidebar-width: 320px;
+  --notes-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --notes-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --notes-border: 1px solid rgba(0, 0, 0, 0.08);
+  --notes-focus: 2px solid var(--dnd-accent);
+  --notes-focus-offset: 2px;
 }
 
-/* center the page and allow generous maximum width on large screens */
-.notes-grid {
+.notes-page {
+  min-height: 100%;
+  padding: var(--notes-space-lg);
+}
+
+.notes-layout {
   display: grid;
-  grid-template-columns: 380px minmax(640px, 1fr);
-  gap: 3rem;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: calc(100% - 6rem);
+  grid-template-columns: minmax(0, var(--notes-sidebar-width)) 1fr;
+  gap: var(--notes-space-xl);
+  max-width: 1200px;
+  margin-inline: auto;
   align-items: start;
 }
 
-.notes-sidebar {
-  position: sticky;
-  top: 3.5rem; /* keep below header/title */
-  height: calc(100vh - 5rem);
-  overflow: auto;
-  background: linear-gradient(180deg, var(--dnd-paper) 0%, rgba(255, 255, 255, 0.02) 100%);
-  padding: 1.25rem;
-  border-radius: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+/* Visually hidden, still for screen readers */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* new-note input styles */
-.notes-sidebar input[type='text'],
-.notes-sidebar textarea {
-  color: var(--dnd-ink);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 0.6rem;
-  border-radius: 6px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
-}
-.notes-sidebar textarea {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
-}
-.notes-sidebar input[type='text']:focus,
-.notes-sidebar textarea:focus {
-  outline: none;
-  border-color: rgba(0, 0, 0, 0.18);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-}
-.notes-sidebar .notes-actions .btn {
-  min-width: 84px;
-}
-
-/* creator variant: match editor look but smaller for the sidebar creator */
-.editor-title.creator {
-  width: 100%;
-  font-size: 0.95rem;
-  padding: 0.5rem;
-  border-radius: 6px;
-}
-.editor-body.creator {
-  min-height: 5.5rem;
-  max-height: 9rem;
-  padding: 0.8rem;
-  border-radius: 8px;
-}
-
-.notes-actions {
+/* ----- Sidebar ----- */
+.sidebar {
   display: flex;
-  gap: 0.6rem;
-  margin-bottom: 0.75rem;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--notes-space-lg);
+  position: sticky;
+  top: var(--notes-space-lg);
+  max-height: calc(100vh - var(--notes-space-xl));
+  overflow-y: auto;
+  padding: var(--notes-space-lg);
+  background: var(--dnd-paper);
+  border-radius: var(--notes-radius-lg);
+  box-shadow: var(--notes-shadow-lg);
+  border: var(--notes-border);
 }
-.btn {
-  border-radius: 10px;
-  padding: 0.5rem 0.9rem;
+
+.sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-md);
+}
+
+.page-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--dnd-ink);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.search-form {
+  display: block;
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-input::placeholder {
+  color: var(--dnd-muted);
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.15);
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-xs);
+}
+.filters-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dnd-muted);
+}
+.tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--notes-space-xs);
+}
+.tag-filter {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--dnd-ink);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tag-filter:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.tag-filter:focus-visible {
+  outline: var(--notes-focus);
+  outline-offset: var(--notes-focus-offset);
+}
+.tag-filter--on {
+  background: var(--dnd-accent);
+  border-color: var(--dnd-accent);
+  color: var(--dnd-paper);
+}
+.tag-filter-clear {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
   border: none;
+  background: none;
+  color: var(--dnd-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
 }
-.btn.primary {
+.tag-filter-clear:hover {
+  color: var(--dnd-ink);
+}
+
+.section-heading {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dnd-muted);
+  margin: 0 0 var(--notes-space-sm);
+}
+
+.new-note {
+  padding-block-end: var(--notes-space-lg);
+  border-block-end: var(--notes-border);
+}
+
+.new-note-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-sm);
+}
+
+.input {
+  width: 100%;
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder {
+  color: var(--dnd-muted);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.12);
+}
+.input--body {
+  resize: vertical;
+  min-height: 4.5rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, 'Roboto Mono', monospace;
+  font-size: 0.875rem;
+}
+
+.new-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--notes-space-sm);
+}
+.toolbar-group {
+  display: flex;
+  gap: var(--notes-space-xs);
+}
+
+.btn {
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.btn:focus-visible {
+  outline: var(--notes-focus);
+  outline-offset: var(--notes-focus-offset);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn--primary {
   background: var(--dnd-accent);
   color: var(--dnd-paper);
 }
-.btn:not(.primary) {
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn--secondary {
   background: var(--dnd-accent-2);
   color: var(--dnd-paper);
 }
-.btn.danger {
+.btn--secondary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn--danger {
   background: #b33a2a;
+  color: #fff;
+}
+.btn--danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.btn--small {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  font-size: 0.8125rem;
+}
+.btn--file {
+  cursor: pointer;
+  margin: 0;
+}
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.notes-nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: var(--notes-space-xs);
+  overflow-y: auto;
 }
-.notes-empty {
+
+.empty-state {
+  padding: var(--notes-space-lg);
+  text-align: center;
   color: var(--dnd-muted);
-  padding: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
 }
-
-.note-row {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 12px;
-  border-radius: 10px;
-  background: transparent;
-  transition:
-    background 0.12s,
-    transform 0.06s;
-}
-.note-row.active {
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.02));
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.03);
-}
-.note-row:hover {
-  background: rgba(0, 0, 0, 0.04);
-  transform: translateY(-1px);
-}
-
-.note-info {
-  display: block;
-  text-align: left;
-  background: transparent;
-  border: none;
-  padding: 0;
+.empty-state p {
   margin: 0;
-  width: 100%;
 }
-.note-title {
-  font-weight: 800;
-  font-size: 1.02rem;
-  line-height: 1.2;
-  max-width: 100%;
+
+.note-item {
+  display: flex;
+  align-items: stretch;
+  gap: var(--notes-space-sm);
+  border-radius: var(--notes-radius);
+  transition: background 0.12s;
+}
+.note-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.note-item--active {
+  background: rgba(0, 0, 0, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.note-item-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--notes-space-xs);
+  padding: var(--notes-space-md);
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--notes-radius);
+  min-width: 0;
+}
+.note-item-button:focus-visible {
+  outline: var(--notes-focus);
+  outline-offset: var(--notes-focus-offset);
+}
+
+.note-item-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.note-meta {
-  font-size: 0.78rem;
-  color: var(--dnd-muted);
-  margin-top: 6px;
-}
-.note-preview {
-  display: block;
-  color: var(--dnd-muted);
-  font-size: 0.9rem;
-  margin-top: 6px;
-  max-height: 38px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.link-delete {
-  background: transparent;
+.note-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--notes-space-xs);
+}
+.note-item-tag {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--dnd-muted);
+}
+
+.note-item-time {
+  font-size: 0.75rem;
+  color: var(--dnd-muted);
+}
+
+.note-item-delete {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
   border: none;
+  background: none;
+  color: var(--dnd-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  align-self: center;
+  border-radius: var(--notes-radius);
+}
+.note-item-delete:hover {
   color: #b33a2a;
-  padding: 0.25rem 0.5rem;
+  background: rgba(179, 58, 42, 0.08);
 }
 
-.notes-editor {
+/* ----- Editor ----- */
+.editor {
+  min-height: 400px;
+  padding: var(--notes-space-xl);
   background: var(--dnd-paper);
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
-}
-.editor-head {
+  border-radius: var(--notes-radius-lg);
+  box-shadow: var(--notes-shadow-lg);
+  border: var(--notes-border);
   display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: var(--notes-space-lg);
 }
-.editor-title {
+.editor--empty {
+  justify-content: center;
+  align-items: center;
+}
+
+.editor-empty {
+  color: var(--dnd-muted);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+.editor-empty p {
+  margin: 0;
+}
+
+.editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--notes-space-md);
+}
+
+.editor-title-input {
+  flex: 1;
+  min-width: 12rem;
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
   font-size: 1.25rem;
-  padding: 0.7rem;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  width: 60%;
+  font-weight: 600;
+  font-family: inherit;
 }
-.editor-controls {
+.editor-title-input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.12);
+}
+
+.editor-toolbar {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--notes-space-md);
 }
-.status {
+.editor-status {
+  font-size: 0.8125rem;
   color: var(--dnd-muted);
 }
-.editor-buttons {
+.editor-actions {
   display: flex;
-  gap: 0.6rem;
+  gap: var(--notes-space-sm);
 }
 
-.editor-body {
+.editor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--notes-space-sm);
+}
+.editor-tags-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dnd-muted);
+}
+.editor-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--notes-space-sm);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  border-radius: var(--notes-radius);
+  background: rgba(0, 0, 0, 0.05);
+  border: var(--notes-border);
+  font-size: 0.8125rem;
+  color: var(--dnd-ink);
+}
+.tag-remove {
+  padding: 0 0.15rem;
+  border: none;
+  background: none;
+  color: var(--dnd-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.tag-remove:hover {
+  color: #b33a2a;
+  background: rgba(179, 58, 42, 0.1);
+}
+.tag-input {
+  min-width: 5rem;
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
+  font-size: 0.875rem;
+}
+.tag-input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+}
+
+.editor-body-input {
   width: 100%;
-  min-height: 72vh;
-  max-height: 84vh;
-  padding: 1.1rem;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
+  min-height: 20rem;
+  padding: var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, 'Roboto Mono', monospace;
   resize: vertical;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.editor-body-input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.12);
 }
 
-/* responsive fallbacks */
-@media (max-width: 1100px) {
-  .notes-grid {
+/* Responsive: stack sidebar above editor */
+@media (max-width: 768px) {
+  .notes-layout {
     grid-template-columns: 1fr;
-    width: calc(100% - 3rem);
-    gap: 1.25rem;
+    gap: var(--notes-space-lg);
   }
-  .notes-sidebar {
+  .sidebar {
     position: relative;
-    height: auto;
+    top: 0;
+    max-height: none;
   }
-  .editor-title {
-    width: 100%;
+  .editor-header {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .editor-body {
-    min-height: 56vh;
+  .editor-title-input {
+    min-width: 0;
   }
 }
-
-/* toast styles moved to src/components/Toast.vue */
 </style>

@@ -22,6 +22,7 @@ import { getToastState } from './composables/useToast'
         <nav class="nav">
           <RouterLink to="/" class="nav-link">Home</RouterLink>
           <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
+          <RouterLink to="/links" class="nav-link">Links</RouterLink>
           <RouterLink to="/about" class="nav-link">About</RouterLink>
           <RouterLink to="/login" class="nav-link">Login</RouterLink>
         </nav>
