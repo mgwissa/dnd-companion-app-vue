@@ -1,9 +1,8 @@
 @import './base.css';
 
 #app {
-  max-width: 1280px;
+  width: 100%;
   margin: 0 auto;
-  padding: 2rem;
   font-weight: normal;
 }
 
@@ -100,8 +99,7 @@ body {
 
 /* Theme-specific header overrides */
 .light .banner {
-  --banner-bg: #2b1f16;
-  --banner-ink: var(--dnd-paper);
+  --banner-bg: #2b1f16 --banner-ink: var(--dnd-paper);
   --banner-sub: var(--dnd-muted);
 }
 .dark .banner {
@@ -124,15 +122,16 @@ a,
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+.parallax {
+  /* The image used */
+  background-image: url('/src/assets/dnd-background.png');
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+  /* Set a specific height */
+  min-height: 100vh;
+
+  /* Create the parallax scrolling effect */
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }

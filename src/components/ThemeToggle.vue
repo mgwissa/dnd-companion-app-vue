@@ -32,7 +32,7 @@ const isLight = computed({
 }
 
 .toggle-icon {
-  color: var(--color-text);
+  color: var(--banner-ink);
   width: 24px;
   height: 24px;
 }
