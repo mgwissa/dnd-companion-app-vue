@@ -45,7 +45,7 @@ body {
 }
 
 .banner {
-  background-image: url('/public/fallback-banner.png'); /* optional decorative asset */
+  background-image: none; /* optional: add a banner image to public/ */
   background-color: var(--banner-bg, #2b1f16);
   color: var(--banner-ink, var(--dnd-paper));
   padding: 1rem 0.5rem;
@@ -124,7 +124,7 @@ a,
 
 .parallax {
   /* The image used */
-  background-image: url('/src/assets/dnd-background.png');
+  background-image: url('./dnd-background.png');
 
   /* Set a specific height */
   min-height: 100vh;

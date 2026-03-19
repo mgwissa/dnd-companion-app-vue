@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import NotesView from '@/views/NotesView.vue'
 import LinksView from '@/views/LinksView.vue'
 import LoginView from '@/views/LoginView.vue'
+import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -46,7 +47,6 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-  const { useAuthStore } = await import('@/stores/auth')
   const auth = useAuthStore()
 
   if (auth.loading) {
