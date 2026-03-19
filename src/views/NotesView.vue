@@ -1,73 +1,93 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { showToast, clearToastTimer } from '@/composables/useToast'
+import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '@/stores/auth'
 
-type Note = { id: string; title: string; body: string; updatedAt: number; tags?: string[] }
+type Note = { id: string; title: string; body: string; updatedAt: number; tags: string[] }
 
-const STORAGE_KEY = 'dnd_notes_v1'
+interface DbNote {
+  id: string
+  user_id: string
+  title: string
+  body: string
+  tags: string[]
+  updated_at: string
+  created_at: string
+}
+
+function dbToNote(row: DbNote): Note {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    tags: row.tags ?? [],
+    updatedAt: new Date(row.updated_at).getTime(),
+  }
+}
+
+const auth = useAuthStore()
 
 const notes = ref<Note[]>([])
 const activeId = ref<string | null>(null)
+const loading = ref(false)
 
-// editor fields (detached from the source note so we can show "Unsaved changes")
 const title = ref('')
 const body = ref('')
 const editorTags = ref<string[]>([])
 
-// search and tag filter (sidebar)
 const searchQuery = ref('')
 const selectedTagFilters = ref<string[]>([])
 const newTagInput = ref('')
 
-// new note inputs
 const newTitle = ref('')
 const newBody = ref('')
 
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
-}
-
-function saveNotesToStorage() {
+async function fetchNotes() {
+  loading.value = true
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes.value))
+    const { data, error } = await supabase
+      .from('notes')
+      .select('*')
+      .order('updated_at', { ascending: false })
+    if (error) throw error
+    notes.value = (data as DbNote[]).map(dbToNote)
   } catch (e) {
-    console.warn('Failed to save notes', e)
+    console.warn('Failed to fetch notes', e)
+    showToast('Failed to load notes', 'error')
+  } finally {
+    loading.value = false
   }
 }
 
-function loadNotesFromStorage() {
+async function createNote() {
+  const noteTitle = newTitle.value.trim() || `Untitled ${notes.value.length + 1}`
+  const noteBody = newBody.value
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    const parsed = JSON.parse(raw) as Note[]
-    // basic shape guard
-    notes.value = parsed
-      .filter((n) => typeof n.id === 'string')
-      .map((n) => ({
-        ...n,
-        updatedAt: Number(n.updatedAt) || Date.now(),
-        tags: Array.isArray(n.tags) ? n.tags : [],
-      }))
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-  } catch (e) {
-    console.warn('Failed to load notes', e)
-  }
-}
+    const { data, error } = await supabase
+      .from('notes')
+      .insert({
+        user_id: auth.user!.id,
+        title: noteTitle,
+        body: noteBody,
+        tags: [],
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+    if (error) throw error
 
-function createNote() {
-  const n: Note = {
-    id: uid(),
-    title: newTitle.value.trim() || `Untitled ${notes.value.length + 1}`,
-    body: newBody.value,
-    updatedAt: Date.now(),
-    tags: [],
+    const n = dbToNote(data as DbNote)
+    notes.value.unshift(n)
+    selectNote(n.id)
+    newTitle.value = ''
+    newBody.value = ''
+    showToast('Created', 'success')
+  } catch (e) {
+    console.warn('Failed to create note', e)
+    showToast('Failed to create note', 'error')
   }
-  notes.value.unshift(n)
-  selectNote(n.id)
-  // clear inputs
-  newTitle.value = ''
-  newBody.value = ''
-  showToast('Created', 'success')
 }
 
 function selectNote(id: string) {
@@ -76,20 +96,27 @@ function selectNote(id: string) {
   activeId.value = id
   title.value = n.title
   body.value = n.body
-  editorTags.value = [...(n.tags ?? [])]
+  editorTags.value = [...n.tags]
 }
 
-function deleteNote(id: string) {
-  const i = notes.value.findIndex((x) => x.id === id)
-  if (i === -1) return
-  notes.value.splice(i, 1)
-  if (activeId.value === id) {
-    activeId.value = null
-    title.value = ''
-    body.value = ''
-    editorTags.value = []
+async function deleteNote(id: string) {
+  try {
+    const { error } = await supabase.from('notes').delete().eq('id', id)
+    if (error) throw error
+
+    const i = notes.value.findIndex((x) => x.id === id)
+    if (i !== -1) notes.value.splice(i, 1)
+    if (activeId.value === id) {
+      activeId.value = null
+      title.value = ''
+      body.value = ''
+      editorTags.value = []
+    }
+    showToast('Deleted', 'error')
+  } catch (e) {
+    console.warn('Failed to delete note', e)
+    showToast('Failed to delete note', 'error')
   }
-  showToast('Deleted', 'error')
 }
 
 function exportNotes() {
@@ -104,41 +131,45 @@ function exportNotes() {
   showToast('Exported notes', 'info')
 }
 
-function importNotes(file: File | null) {
+async function importNotes(file: File | null) {
   if (!file) return
-  const reader = new FileReader()
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(String(reader.result)) as Note[]
-      const byId = new Map(notes.value.map((n) => [n.id, n] as const))
-      for (const n of parsed) {
-        if (!n?.id) continue
-        const existing = byId.get(n.id)
-        const incoming = {
-          ...n,
-          updatedAt: Number(n.updatedAt) || Date.now(),
-          tags: Array.isArray(n.tags) ? n.tags : [],
-        }
-        if (!existing || incoming.updatedAt > existing.updatedAt) {
-          byId.set(n.id, incoming)
-        }
-      }
-      notes.value = Array.from(byId.values()).sort((a, b) => b.updatedAt - a.updatedAt)
-      // if current active was merged, refresh editor fields
-      if (activeId.value) {
-        const cur = notes.value.find((n) => n.id === activeId.value)
-        if (cur) {
-          title.value = cur.title
-          body.value = cur.body
-          editorTags.value = [...(cur.tags ?? [])]
-        }
-      }
-      showToast('Imported', 'info')
-    } catch (e) {
-      console.warn('Failed to import notes', e)
+  const text = await file.text()
+  try {
+    const parsed = JSON.parse(text) as Partial<Note>[]
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      showToast('No notes found in file', 'error')
+      return
     }
+
+    const rows = parsed
+      .filter((n) => n.title || n.body)
+      .map((n) => ({
+        user_id: auth.user!.id,
+        title: n.title ?? '',
+        body: n.body ?? '',
+        tags: Array.isArray(n.tags) ? n.tags : [],
+        updated_at: n.updatedAt ? new Date(n.updatedAt).toISOString() : new Date().toISOString(),
+      }))
+
+    const { data, error } = await supabase.from('notes').insert(rows).select()
+    if (error) throw error
+
+    const imported = (data as DbNote[]).map(dbToNote)
+    notes.value = [...imported, ...notes.value].sort((a, b) => b.updatedAt - a.updatedAt)
+
+    if (activeId.value) {
+      const cur = notes.value.find((n) => n.id === activeId.value)
+      if (cur) {
+        title.value = cur.title
+        body.value = cur.body
+        editorTags.value = [...cur.tags]
+      }
+    }
+    showToast(`Imported ${imported.length} notes`, 'info')
+  } catch (e) {
+    console.warn('Failed to import notes', e)
+    showToast('Failed to import notes', 'error')
   }
-  reader.readAsText(file)
 }
 
 function onFileChange(e: Event) {
@@ -147,23 +178,40 @@ function onFileChange(e: Event) {
   importNotes(file)
 }
 
-function saveActive() {
+async function saveActive() {
   if (!activeId.value) return
   const i = notes.value.findIndex((x) => x.id === activeId.value)
   if (i === -1) return
-  notes.value[i] = {
-    ...notes.value[i],
-    title: title.value,
-    body: body.value,
-    tags: [...editorTags.value],
-    updatedAt: Date.now(),
+
+  const now = new Date()
+  try {
+    const { error } = await supabase
+      .from('notes')
+      .update({
+        title: title.value,
+        body: body.value,
+        tags: [...editorTags.value],
+        updated_at: now.toISOString(),
+      })
+      .eq('id', activeId.value)
+    if (error) throw error
+
+    notes.value[i] = {
+      ...notes.value[i],
+      title: title.value,
+      body: body.value,
+      tags: [...editorTags.value],
+      updatedAt: now.getTime(),
+    }
+    showToast('Saved', 'success')
+  } catch (e) {
+    console.warn('Failed to save note', e)
+    showToast('Failed to save note', 'error')
   }
-  showToast('Saved', 'success')
 }
 
-function deleteActive() {
-  if (activeId.value) deleteNote(activeId.value)
-  showToast('Deleted', 'error')
+async function deleteActive() {
+  if (activeId.value) await deleteNote(activeId.value)
 }
 
 function toggleTagFilter(tag: string) {
@@ -202,12 +250,8 @@ function formatDate(ms: number): string {
   })
 }
 
-// persist to localStorage
-watch(notes, saveNotesToStorage, { deep: true })
-
 onMounted(() => {
-  loadNotesFromStorage()
-  // keyboard shortcut: Ctrl/Cmd+S to save
+  fetchNotes()
   const handler = (e: KeyboardEvent) => {
     const isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.code === 'KeyS')
     if (isSave) {
@@ -216,7 +260,6 @@ onMounted(() => {
     }
   }
   window.addEventListener('keydown', handler)
-  // cleanup
   onBeforeUnmount(() => window.removeEventListener('keydown', handler))
 })
 
@@ -228,7 +271,7 @@ const sortedNotes = computed(() => notes.value.slice().sort((a, b) => b.updatedA
 
 const allTags = computed(() => {
   const set = new Set<string>()
-  notes.value.forEach((n) => (n.tags ?? []).forEach((t) => set.add(t)))
+  notes.value.forEach((n) => n.tags.forEach((t) => set.add(t)))
   return [...set].sort((a, b) => a.localeCompare(b))
 })
 
@@ -244,7 +287,7 @@ const filteredNotes = computed(() => {
   const selected = selectedTagFilters.value
   if (selected.length > 0) {
     list = list.filter((n) => {
-      const noteTags = (n.tags ?? []).map((t) => t.toLowerCase())
+      const noteTags = n.tags.map((t) => t.toLowerCase())
       return selected.every((s) => noteTags.includes(s.toLowerCase()))
     })
   }
@@ -266,12 +309,8 @@ function tagsEqual(a: string[], b: string[]): boolean {
 
 const unsaved = computed(() => {
   if (!activeNote.value) return false
-  if (
-    activeNote.value.title !== title.value ||
-    activeNote.value.body !== body.value
-  )
-    return true
-  return !tagsEqual(activeNote.value.tags ?? [], editorTags.value)
+  if (activeNote.value.title !== title.value || activeNote.value.body !== body.value) return true
+  return !tagsEqual(activeNote.value.tags, editorTags.value)
 })
 </script>
 
@@ -372,7 +411,10 @@ const unsaved = computed(() => {
 
         <nav class="notes-nav" aria-label="Your notes">
           <h2 class="section-heading">Your notes</h2>
-          <div v-if="notes.length === 0" class="empty-state">
+          <div v-if="loading" class="empty-state">
+            <p>Loading notes...</p>
+          </div>
+          <div v-else-if="notes.length === 0" class="empty-state">
             <p>No notes yet. Create one above.</p>
           </div>
           <div v-else-if="filteredNotes.length === 0" class="empty-state">
@@ -392,9 +434,9 @@ const unsaved = computed(() => {
                 @click="selectNote(n.id)"
               >
                 <span class="note-item-title">{{ n.title }}</span>
-                <span v-if="(n.tags ?? []).length" class="note-item-tags">
+                <span v-if="n.tags.length" class="note-item-tags">
                   <span
-                    v-for="t in (n.tags ?? []).slice(0, 3)"
+                    v-for="t in n.tags.slice(0, 3)"
                     :key="t"
                     class="note-item-tag"
                   >

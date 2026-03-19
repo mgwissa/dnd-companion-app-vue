@@ -7,6 +7,7 @@ import App from './App.vue'
 import router from './router'
 
 import { useThemeStore } from './stores/theme'
+import { useAuthStore } from './stores/auth'
 
 const app = createApp(App)
 app.use(createPinia())
@@ -25,5 +26,8 @@ watch(
     document.documentElement.classList.toggle('light', newTheme === 'light')
   },
 )
+
+const authStore = useAuthStore()
+authStore.init()
 
 app.mount('#app')
