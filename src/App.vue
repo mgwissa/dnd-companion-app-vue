@@ -40,7 +40,7 @@ async function handleLogout() {
           <RouterLink to="/" class="nav-link">Home</RouterLink>
           <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
           <RouterLink to="/links" class="nav-link">Links</RouterLink>
-          <RouterLink to="/about" class="nav-link">About</RouterLink>
+          <RouterLink to="/about" class="nav-link">Profile</RouterLink>
           <template v-if="auth.isAuthenticated">
             <button type="button" class="nav-link nav-btn" @click="handleLogout">
               Logout
