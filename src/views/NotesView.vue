@@ -316,245 +316,246 @@ const unsaved = computed(() => {
 
 <template>
   <main class="notes-page" role="main">
-    <div class="notes-layout">
-      <!-- Sidebar: search, filters, new note form, list -->
-      <aside class="sidebar" aria-label="Notes list and actions">
-        <header class="sidebar-header">
-          <h1 class="page-title">Notes</h1>
-          <form
-            class="search-form"
-            role="search"
-            aria-label="Search notes"
-            @submit.prevent
-          >
-            <label for="notes-search" class="visually-hidden">Search notes</label>
-            <input
-              id="notes-search"
-              v-model="searchQuery"
-              type="search"
-              class="search-input"
-              placeholder="Search..."
-              autocomplete="off"
-              aria-describedby="search-desc"
-            />
-            <span id="search-desc" class="visually-hidden">Matches title and body text</span>
-          </form>
-          <div v-if="allTags.length > 0" class="filters">
-            <span class="filters-label" id="filter-label">Filter by tag</span>
-            <div class="tag-filters" role="group" aria-labelledby="filter-label">
+    <h1 class="page-title">Notes</h1>
+
+    <!-- Editor / New note — always at the top -->
+    <article class="editor" aria-label="Note editor">
+      <template v-if="activeId">
+        <header class="editor-header">
+          <label for="editor-title" class="visually-hidden">Note title</label>
+          <input
+            id="editor-title"
+            v-model="title"
+            type="text"
+            class="editor-title-input"
+            placeholder="Title"
+          />
+          <div class="editor-toolbar">
+            <span class="editor-status" aria-live="polite">
+              {{ unsaved ? 'Unsaved changes' : 'Saved' }}
+            </span>
+            <div class="editor-actions">
               <button
-                v-for="tag in allTags"
-                :key="tag"
                 type="button"
-                class="tag-filter"
-                :class="{ 'tag-filter--on': selectedTagFilters.includes(tag) }"
-                :aria-pressed="selectedTagFilters.includes(tag)"
-                @click="toggleTagFilter(tag)"
+                class="btn btn--secondary"
+                :disabled="!unsaved"
+                @click="saveActive"
               >
-                {{ tag }}
+                Save
               </button>
               <button
-                v-if="hasActiveFilters"
                 type="button"
-                class="tag-filter-clear"
-                @click="clearFilters"
+                class="btn btn--outline"
+                @click="activeId = null"
               >
-                Clear
+                Close
+              </button>
+              <button
+                type="button"
+                class="btn btn--danger"
+                aria-label="Delete this note"
+                @click="deleteActive"
+              >
+                Delete
               </button>
             </div>
           </div>
         </header>
 
-        <section class="new-note" aria-labelledby="new-note-heading">
-          <h2 id="new-note-heading" class="section-heading">New note</h2>
-          <div class="new-note-fields">
-            <label for="new-title" class="visually-hidden">New note title</label>
-            <input
-              id="new-title"
-              v-model="newTitle"
-              type="text"
-              class="input input--title"
-              placeholder="Title"
-              @keydown.enter.prevent="newBody && createNote()"
-            />
-            <label for="new-body" class="visually-hidden">New note content</label>
-            <textarea
-              id="new-body"
-              v-model="newBody"
-              class="input input--body"
-              rows="3"
-              placeholder="Write something..."
-              @keydown.ctrl.enter.prevent="createNote()"
-            />
-            <div class="new-note-actions">
-              <button type="button" class="btn btn--primary" @click="createNote">
-                Add note
-              </button>
-              <div class="toolbar-group">
-                <button type="button" class="btn btn--secondary" @click="exportNotes">
-                  Export
-                </button>
-                <label class="btn btn--secondary btn--file">
-                  Import
-                  <input
-                    type="file"
-                    accept="application/json"
-                    class="file-input"
-                    aria-label="Import notes from JSON"
-                    @change="onFileChange"
-                  />
-                </label>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <nav class="notes-nav" aria-label="Your notes">
-          <h2 class="section-heading">Your notes</h2>
-          <div v-if="loading" class="empty-state">
-            <p>Loading notes...</p>
-          </div>
-          <div v-else-if="notes.length === 0" class="empty-state">
-            <p>No notes yet. Create one above.</p>
-          </div>
-          <div v-else-if="filteredNotes.length === 0" class="empty-state">
-            <p>No notes match your search or filters.</p>
-          </div>
-          <ul v-else class="notes-list" role="list">
-            <li
-              v-for="n in filteredNotes"
-              :key="n.id"
-              class="note-item"
-              :class="{ 'note-item--active': n.id === activeId }"
+        <div class="editor-tags">
+          <span class="editor-tags-label">Tags</span>
+          <div class="editor-tags-list">
+            <span
+              v-for="(t, i) in editorTags"
+              :key="t"
+              class="tag"
             >
+              {{ t }}
               <button
                 type="button"
-                class="note-item-button"
-                :aria-current="n.id === activeId ? 'true' : undefined"
-                @click="selectNote(n.id)"
+                class="tag-remove"
+                :aria-label="`Remove tag ${t}`"
+                @click="removeTag(i)"
               >
-                <span class="note-item-title">{{ n.title }}</span>
-                <span v-if="n.tags.length" class="note-item-tags">
-                  <span
-                    v-for="t in n.tags.slice(0, 3)"
-                    :key="t"
-                    class="note-item-tag"
-                  >
-                    {{ t }}
-                  </span>
-                </span>
-                <time
-                  class="note-item-time"
-                  :datetime="new Date(n.updatedAt).toISOString()"
-                >
-                  {{ formatDate(n.updatedAt) }}
-                </time>
+                ×
               </button>
-              <button
-                type="button"
-                class="note-item-delete"
-                aria-label="Delete this note"
-                @click.stop="deleteNote(n.id)"
-              >
-                Delete
-              </button>
-            </li>
-          </ul>
-        </nav>
-      </aside>
-
-      <!-- Editor -->
-      <article
-        class="editor"
-        :class="{ 'editor--empty': !activeId }"
-        aria-label="Note editor"
-      >
-        <template v-if="activeId">
-          <header class="editor-header">
-            <label for="editor-title" class="visually-hidden">Note title</label>
+            </span>
             <input
-              id="editor-title"
-              v-model="title"
+              v-model="newTagInput"
               type="text"
-              class="editor-title-input"
-              placeholder="Title"
+              class="tag-input"
+              placeholder="Add tag"
+              aria-label="Add tag"
+              @keydown.enter.prevent="addTagFromInput()"
             />
-            <div class="editor-toolbar">
-              <span class="editor-status" aria-live="polite">
-                {{ unsaved ? 'Unsaved changes' : 'Saved' }}
-              </span>
-              <div class="editor-actions">
-                <button
-                  type="button"
-                  class="btn btn--secondary"
-                  :disabled="!unsaved"
-                  @click="saveActive"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--danger"
-                  aria-label="Delete this note"
-                  @click="deleteActive"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </header>
+            <button type="button" class="btn btn--small" @click="addTagFromInput">
+              Add
+            </button>
+          </div>
+        </div>
 
-          <div class="editor-tags">
-            <span class="editor-tags-label">Tags</span>
-            <div class="editor-tags-list">
+        <label for="editor-body" class="visually-hidden">Note content</label>
+        <textarea
+          id="editor-body"
+          v-model="body"
+          class="editor-body-input"
+          rows="12"
+          placeholder="Write your note..."
+        />
+      </template>
+
+      <template v-else>
+        <header class="editor-header">
+          <h2 class="editor-heading">New note</h2>
+          <div class="editor-toolbar">
+            <div class="editor-actions">
+              <button type="button" class="btn btn--secondary" @click="exportNotes">
+                Export
+              </button>
+              <label class="btn btn--secondary btn--file">
+                Import
+                <input
+                  type="file"
+                  accept="application/json"
+                  class="file-input"
+                  aria-label="Import notes from JSON"
+                  @change="onFileChange"
+                />
+              </label>
+            </div>
+          </div>
+        </header>
+        <div class="new-note-fields">
+          <label for="new-title" class="visually-hidden">New note title</label>
+          <input
+            id="new-title"
+            v-model="newTitle"
+            type="text"
+            class="input input--title"
+            placeholder="Title"
+            @keydown.enter.prevent="newBody && createNote()"
+          />
+          <label for="new-body" class="visually-hidden">New note content</label>
+          <textarea
+            id="new-body"
+            v-model="newBody"
+            class="input input--body"
+            rows="4"
+            placeholder="Write something..."
+            @keydown.ctrl.enter.prevent="createNote()"
+          />
+          <div class="new-note-actions">
+            <button type="button" class="btn btn--primary" @click="createNote">
+              Add note
+            </button>
+          </div>
+        </div>
+      </template>
+    </article>
+
+    <!-- Notes list with search and filters -->
+    <section class="notes-panel" aria-label="Your notes">
+      <header class="panel-header">
+        <h2 class="section-heading">Your notes</h2>
+        <form
+          class="search-form"
+          role="search"
+          aria-label="Search notes"
+          @submit.prevent
+        >
+          <label for="notes-search" class="visually-hidden">Search notes</label>
+          <input
+            id="notes-search"
+            v-model="searchQuery"
+            type="search"
+            class="search-input"
+            placeholder="Search..."
+            autocomplete="off"
+            aria-describedby="search-desc"
+          />
+          <span id="search-desc" class="visually-hidden">Matches title and body text</span>
+        </form>
+      </header>
+
+      <div v-if="allTags.length > 0" class="filters">
+        <span class="filters-label" id="filter-label">Filter by tag</span>
+        <div class="tag-filters" role="group" aria-labelledby="filter-label">
+          <button
+            v-for="tag in allTags"
+            :key="tag"
+            type="button"
+            class="tag-filter"
+            :class="{ 'tag-filter--on': selectedTagFilters.includes(tag) }"
+            :aria-pressed="selectedTagFilters.includes(tag)"
+            @click="toggleTagFilter(tag)"
+          >
+            {{ tag }}
+          </button>
+          <button
+            v-if="hasActiveFilters"
+            type="button"
+            class="tag-filter-clear"
+            @click="clearFilters"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <div v-if="loading" class="empty-state">
+        <p>Loading notes...</p>
+      </div>
+      <div v-else-if="notes.length === 0" class="empty-state">
+        <p>No notes yet. Create one above.</p>
+      </div>
+      <div v-else-if="filteredNotes.length === 0" class="empty-state">
+        <p>No notes match your search or filters.</p>
+      </div>
+      <ul v-else class="notes-grid" role="list">
+        <li
+          v-for="n in filteredNotes"
+          :key="n.id"
+          class="note-card"
+          :class="{ 'note-card--active': n.id === activeId }"
+        >
+          <button
+            type="button"
+            class="note-card-button"
+            :aria-current="n.id === activeId ? 'true' : undefined"
+            @click="selectNote(n.id)"
+          >
+            <span class="note-card-title">{{ n.title }}</span>
+            <span v-if="n.tags.length" class="note-card-tags">
               <span
-                v-for="(t, i) in editorTags"
+                v-for="t in n.tags.slice(0, 3)"
                 :key="t"
-                class="tag"
+                class="note-card-tag"
               >
                 {{ t }}
-                <button
-                  type="button"
-                  class="tag-remove"
-                  :aria-label="`Remove tag ${t}`"
-                  @click="removeTag(i)"
-                >
-                  ×
-                </button>
               </span>
-              <input
-                v-model="newTagInput"
-                type="text"
-                class="tag-input"
-                placeholder="Add tag"
-                aria-label="Add tag"
-                @keydown.enter.prevent="addTagFromInput()"
-              />
-              <button type="button" class="btn btn--small" @click="addTagFromInput">
-                Add
-              </button>
-            </div>
-          </div>
-
-          <label for="editor-body" class="visually-hidden">Note content</label>
-          <textarea
-            id="editor-body"
-            v-model="body"
-            class="editor-body-input"
-            rows="16"
-            placeholder="Write your note..."
-          />
-        </template>
-        <div v-else class="editor-empty">
-          <p>Select a note from the list or create a new one.</p>
-        </div>
-      </article>
-    </div>
+            </span>
+            <time
+              class="note-card-time"
+              :datetime="new Date(n.updatedAt).toISOString()"
+            >
+              {{ formatDate(n.updatedAt) }}
+            </time>
+          </button>
+          <button
+            type="button"
+            class="note-card-delete"
+            aria-label="Delete this note"
+            @click.stop="deleteNote(n.id)"
+          >
+            Delete
+          </button>
+        </li>
+      </ul>
+    </section>
   </main>
 </template>
 
 <style scoped>
-/* Design tokens */
 .notes-page {
   --notes-space-xs: 0.25rem;
   --notes-space-sm: 0.5rem;
@@ -563,7 +564,6 @@ const unsaved = computed(() => {
   --notes-space-xl: 2rem;
   --notes-radius: 8px;
   --notes-radius-lg: 12px;
-  --notes-sidebar-width: 320px;
   --notes-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   --notes-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
   --notes-border: 1px solid rgba(0, 0, 0, 0.08);
@@ -574,18 +574,13 @@ const unsaved = computed(() => {
 .notes-page {
   min-height: 100%;
   padding: var(--notes-space-lg);
-}
-
-.notes-layout {
-  display: grid;
-  grid-template-columns: minmax(0, var(--notes-sidebar-width)) 1fr;
-  gap: var(--notes-space-xl);
-  max-width: 1200px;
+  max-width: 860px;
   margin-inline: auto;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-xl);
 }
 
-/* Visually hidden, still for screen readers */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -598,334 +593,17 @@ const unsaved = computed(() => {
   border: 0;
 }
 
-/* ----- Sidebar ----- */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--notes-space-lg);
-  position: sticky;
-  top: var(--notes-space-lg);
-  max-height: calc(100vh - var(--notes-space-xl));
-  overflow-y: auto;
-  padding: var(--notes-space-lg);
-  background: var(--dnd-paper);
-  border-radius: var(--notes-radius-lg);
-  box-shadow: var(--notes-shadow-lg);
-  border: var(--notes-border);
-}
-
-.sidebar-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--notes-space-md);
-}
-
 .page-title {
   font-family: 'Cinzel', serif;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0;
   letter-spacing: 0.02em;
 }
 
-.search-form {
-  display: block;
-}
-
-.search-input {
-  width: 100%;
-  padding: var(--notes-space-sm) var(--notes-space-md);
-  border-radius: var(--notes-radius);
-  border: var(--notes-border);
-  background: var(--dnd-bg);
-  color: var(--dnd-ink);
-  font-size: 0.9375rem;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.search-input::placeholder {
-  color: var(--dnd-muted);
-}
-.search-input:focus {
-  outline: none;
-  border-color: var(--dnd-accent);
-  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.15);
-}
-
-.filters {
-  display: flex;
-  flex-direction: column;
-  gap: var(--notes-space-xs);
-}
-.filters-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--dnd-muted);
-}
-.tag-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--notes-space-xs);
-}
-.tag-filter {
-  padding: var(--notes-space-xs) var(--notes-space-sm);
-  border-radius: var(--notes-radius);
-  border: var(--notes-border);
-  background: rgba(0, 0, 0, 0.03);
-  color: var(--dnd-ink);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-.tag-filter:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-.tag-filter:focus-visible {
-  outline: var(--notes-focus);
-  outline-offset: var(--notes-focus-offset);
-}
-.tag-filter--on {
-  background: var(--dnd-accent);
-  border-color: var(--dnd-accent);
-  color: var(--dnd-paper);
-}
-.tag-filter-clear {
-  padding: var(--notes-space-xs) var(--notes-space-sm);
-  border: none;
-  background: none;
-  color: var(--dnd-muted);
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-.tag-filter-clear:hover {
-  color: var(--dnd-ink);
-}
-
-.section-heading {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--dnd-muted);
-  margin: 0 0 var(--notes-space-sm);
-}
-
-.new-note {
-  padding-block-end: var(--notes-space-lg);
-  border-block-end: var(--notes-border);
-}
-
-.new-note-fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--notes-space-sm);
-}
-
-.input {
-  width: 100%;
-  padding: var(--notes-space-sm) var(--notes-space-md);
-  border-radius: var(--notes-radius);
-  border: var(--notes-border);
-  background: var(--dnd-bg);
-  color: var(--dnd-ink);
-  font-size: 0.9375rem;
-  font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.input::placeholder {
-  color: var(--dnd-muted);
-}
-.input:focus {
-  outline: none;
-  border-color: var(--dnd-accent);
-  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.12);
-}
-.input--body {
-  resize: vertical;
-  min-height: 4.5rem;
-  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, 'Roboto Mono', monospace;
-  font-size: 0.875rem;
-}
-
-.new-note-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--notes-space-sm);
-}
-.toolbar-group {
-  display: flex;
-  gap: var(--notes-space-xs);
-}
-
-.btn {
-  padding: var(--notes-space-sm) var(--notes-space-md);
-  border-radius: var(--notes-radius);
-  border: none;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s, color 0.15s, opacity 0.15s;
-}
-.btn:focus-visible {
-  outline: var(--notes-focus);
-  outline-offset: var(--notes-focus-offset);
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn--primary {
-  background: var(--dnd-accent);
-  color: var(--dnd-paper);
-}
-.btn--primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-.btn--secondary {
-  background: var(--dnd-accent-2);
-  color: var(--dnd-paper);
-}
-.btn--secondary:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-.btn--danger {
-  background: #b33a2a;
-  color: #fff;
-}
-.btn--danger:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-.btn--small {
-  padding: var(--notes-space-xs) var(--notes-space-sm);
-  font-size: 0.8125rem;
-}
-.btn--file {
-  cursor: pointer;
-  margin: 0;
-}
-.file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-}
-
-.notes-nav {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.notes-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--notes-space-xs);
-  overflow-y: auto;
-}
-
-.empty-state {
-  padding: var(--notes-space-lg);
-  text-align: center;
-  color: var(--dnd-muted);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-}
-.empty-state p {
-  margin: 0;
-}
-
-.note-item {
-  display: flex;
-  align-items: stretch;
-  gap: var(--notes-space-sm);
-  border-radius: var(--notes-radius);
-  transition: background 0.12s;
-}
-.note-item:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-.note-item--active {
-  background: rgba(0, 0, 0, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
-}
-
-.note-item-button {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--notes-space-xs);
-  padding: var(--notes-space-md);
-  border: none;
-  background: none;
-  color: inherit;
-  font-family: inherit;
-  text-align: start;
-  cursor: pointer;
-  border-radius: var(--notes-radius);
-  min-width: 0;
-}
-.note-item-button:focus-visible {
-  outline: var(--notes-focus);
-  outline-offset: var(--notes-focus-offset);
-}
-
-.note-item-title {
-  font-weight: 600;
-  font-size: 0.9375rem;
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.note-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--notes-space-xs);
-}
-.note-item-tag {
-  font-size: 0.6875rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--dnd-muted);
-}
-
-.note-item-time {
-  font-size: 0.75rem;
-  color: var(--dnd-muted);
-}
-
-.note-item-delete {
-  padding: var(--notes-space-xs) var(--notes-space-sm);
-  border: none;
-  background: none;
-  color: var(--dnd-muted);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  align-self: center;
-  border-radius: var(--notes-radius);
-}
-.note-item-delete:hover {
-  color: #b33a2a;
-  background: rgba(179, 58, 42, 0.08);
-}
-
-/* ----- Editor ----- */
+/* ----- Editor (top section) ----- */
 .editor {
-  min-height: 400px;
   padding: var(--notes-space-xl);
   background: var(--dnd-paper);
   border-radius: var(--notes-radius-lg);
@@ -935,25 +613,21 @@ const unsaved = computed(() => {
   flex-direction: column;
   gap: var(--notes-space-lg);
 }
-.editor--empty {
-  justify-content: center;
-  align-items: center;
-}
-
-.editor-empty {
-  color: var(--dnd-muted);
-  font-size: 0.9375rem;
-  text-align: center;
-}
-.editor-empty p {
-  margin: 0;
-}
 
 .editor-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--notes-space-md);
+}
+
+.editor-heading {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--dnd-ink);
+  margin: 0;
+  flex: 1;
 }
 
 .editor-title-input {
@@ -1050,7 +724,7 @@ const unsaved = computed(() => {
 
 .editor-body-input {
   width: 100%;
-  min-height: 20rem;
+  min-height: 14rem;
   padding: var(--notes-space-md);
   border-radius: var(--notes-radius);
   border: var(--notes-border);
@@ -1068,16 +742,329 @@ const unsaved = computed(() => {
   box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.12);
 }
 
-/* Responsive: stack sidebar above editor */
-@media (max-width: 768px) {
-  .notes-layout {
-    grid-template-columns: 1fr;
-    gap: var(--notes-space-lg);
-  }
-  .sidebar {
-    position: relative;
-    top: 0;
-    max-height: none;
+/* New note form (shown when no note is selected) */
+.new-note-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-sm);
+}
+
+.input {
+  width: 100%;
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder {
+  color: var(--dnd-muted);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.12);
+}
+.input--body {
+  resize: vertical;
+  min-height: 5rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, 'Roboto Mono', monospace;
+  font-size: 0.875rem;
+}
+
+.new-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--notes-space-sm);
+}
+
+/* ----- Buttons ----- */
+.btn {
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.btn:focus-visible {
+  outline: var(--notes-focus);
+  outline-offset: var(--notes-focus-offset);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn--primary {
+  background: var(--dnd-accent);
+  color: var(--dnd-paper);
+}
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn--secondary {
+  background: var(--dnd-accent-2);
+  color: var(--dnd-paper);
+}
+.btn--secondary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.btn--outline {
+  background: transparent;
+  color: var(--dnd-muted);
+  border: var(--notes-border);
+}
+.btn--outline:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--dnd-ink);
+}
+.btn--danger {
+  background: #b33a2a;
+  color: #fff;
+}
+.btn--danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.btn--small {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  font-size: 0.8125rem;
+}
+.btn--file {
+  cursor: pointer;
+  margin: 0;
+}
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* ----- Notes panel (below editor) ----- */
+.notes-panel {
+  padding: var(--notes-space-xl);
+  background: var(--dnd-paper);
+  border-radius: var(--notes-radius-lg);
+  box-shadow: var(--notes-shadow-lg);
+  border: var(--notes-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-md);
+}
+
+.panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--notes-space-md);
+}
+
+.panel-header .section-heading {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.section-heading {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dnd-muted);
+  margin: 0;
+}
+
+.search-form {
+  flex: 1;
+  min-width: 10rem;
+  max-width: 20rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: var(--notes-space-sm) var(--notes-space-md);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: var(--dnd-bg);
+  color: var(--dnd-ink);
+  font-size: 0.9375rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-input::placeholder {
+  color: var(--dnd-muted);
+}
+.search-input:focus {
+  outline: none;
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 3px rgba(139, 58, 47, 0.15);
+}
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--notes-space-xs);
+}
+.filters-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dnd-muted);
+}
+.tag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--notes-space-xs);
+}
+.tag-filter {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--dnd-ink);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tag-filter:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.tag-filter:focus-visible {
+  outline: var(--notes-focus);
+  outline-offset: var(--notes-focus-offset);
+}
+.tag-filter--on {
+  background: var(--dnd-accent);
+  border-color: var(--dnd-accent);
+  color: var(--dnd-paper);
+}
+.tag-filter-clear {
+  padding: var(--notes-space-xs) var(--notes-space-sm);
+  border: none;
+  background: none;
+  color: var(--dnd-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.tag-filter-clear:hover {
+  color: var(--dnd-ink);
+}
+
+.empty-state {
+  padding: var(--notes-space-lg);
+  text-align: center;
+  color: var(--dnd-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.empty-state p {
+  margin: 0;
+}
+
+/* Notes grid — cards in a responsive grid */
+.notes-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--notes-space-md);
+}
+
+.note-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--notes-radius);
+  border: var(--notes-border);
+  background: rgba(0, 0, 0, 0.02);
+  transition: background 0.12s, border-color 0.15s, box-shadow 0.15s;
+}
+.note-card:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: var(--notes-shadow);
+}
+.note-card--active {
+  border-color: var(--dnd-accent);
+  box-shadow: 0 0 0 2px rgba(139, 58, 47, 0.15);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.note-card-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--notes-space-xs);
+  padding: var(--notes-space-md);
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--notes-radius) var(--notes-radius) 0 0;
+  min-width: 0;
+}
+.note-card-button:focus-visible {
+  outline: var(--notes-focus);
+  outline-offset: var(--notes-focus-offset);
+}
+
+.note-card-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.note-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--notes-space-xs);
+}
+.note-card-tag {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--dnd-muted);
+}
+
+.note-card-time {
+  font-size: 0.75rem;
+  color: var(--dnd-muted);
+}
+
+.note-card-delete {
+  padding: var(--notes-space-xs) var(--notes-space-md);
+  border: none;
+  border-top: var(--notes-border);
+  background: none;
+  color: var(--dnd-muted);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: center;
+  border-radius: 0 0 var(--notes-radius) var(--notes-radius);
+}
+.note-card-delete:hover {
+  color: #b33a2a;
+  background: rgba(179, 58, 42, 0.08);
+}
+
+@media (max-width: 600px) {
+  .notes-page {
+    padding: var(--notes-space-md);
   }
   .editor-header {
     flex-direction: column;
@@ -1085,6 +1072,16 @@ const unsaved = computed(() => {
   }
   .editor-title-input {
     min-width: 0;
+  }
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-form {
+    max-width: none;
+  }
+  .notes-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
