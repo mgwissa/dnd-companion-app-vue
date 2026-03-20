@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useCampaignStore } from '@/stores/campaign'
+
+const auth = useAuthStore()
+const campaignStore = useCampaignStore()
 </script>
 
 <template>
@@ -7,16 +12,34 @@ import { RouterLink } from 'vue-router'
     <header class="hero">
       <h1 class="hero-title">DND Companion</h1>
       <p class="hero-tagline">
-        Notes that actually work — for session recaps, NPCs, and everything D&D Beyond doesn’t do well.
+        Campaign tools, shared notes, and character management for your party.
       </p>
     </header>
 
     <nav class="actions" aria-label="Main actions">
+      <RouterLink to="/campaigns" class="action-card">
+        <span class="action-icon" aria-hidden="true">🏰</span>
+        <div class="action-text">
+          <h2 class="action-title">Campaigns</h2>
+          <p class="action-desc">Create or join a campaign. Share an invite code with your party to get everyone in.</p>
+        </div>
+        <span class="action-arrow" aria-hidden="true">→</span>
+      </RouterLink>
+
       <RouterLink to="/notes" class="action-card">
         <span class="action-icon" aria-hidden="true">📜</span>
         <div class="action-text">
           <h2 class="action-title">Notes</h2>
-          <p class="action-desc">Session recaps, NPCs, locations. Search, tag, export. Your data stays in your browser.</p>
+          <p class="action-desc">Session recaps, NPCs, locations. Keep notes private or share them with the campaign.</p>
+        </div>
+        <span class="action-arrow" aria-hidden="true">→</span>
+      </RouterLink>
+
+      <RouterLink to="/characters" class="action-card">
+        <span class="action-icon" aria-hidden="true">⚔️</span>
+        <div class="action-text">
+          <h2 class="action-title">Characters</h2>
+          <p class="action-desc">Create and manage your characters. Set an active one for each campaign.</p>
         </div>
         <span class="action-arrow" aria-hidden="true">→</span>
       </RouterLink>
@@ -31,8 +54,12 @@ import { RouterLink } from 'vue-router'
       </RouterLink>
     </nav>
 
+    <div v-if="auth.isAuthenticated && campaignStore.activeCampaign" class="active-campaign">
+      Active campaign: <strong>{{ campaignStore.activeCampaign.name }}</strong>
+    </div>
+
     <footer class="foot-note">
-      <p>Built for players. Your data is local; export to JSON anytime.</p>
+      <p>Built for players. Your data is synced across devices.</p>
     </footer>
   </main>
 </template>
@@ -48,7 +75,6 @@ import { RouterLink } from 'vue-router'
   margin: 0 auto;
 }
 
-/* Hero: one clear headline + tagline */
 .hero {
   text-align: center;
   margin-bottom: 3rem;
@@ -73,7 +99,6 @@ import { RouterLink } from 'vue-router'
   margin-inline: auto;
 }
 
-/* Actions: two equal cards, full width, horizontal layout */
 .actions {
   width: 100%;
   display: flex;
@@ -151,7 +176,19 @@ import { RouterLink } from 'vue-router'
   transform: translateX(4px);
 }
 
-/* Footer line */
+.active-campaign {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--dnd-paper);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--dnd-muted);
+}
+.active-campaign strong {
+  color: var(--dnd-ink);
+}
+
 .foot-note {
   margin-top: auto;
   padding-top: 3rem;

@@ -1,16 +1,41 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router'
+import { onMounted, watch } from 'vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import DndToast from './components/DndToast.vue'
 import { getToastState, showToast } from './composables/useToast'
 import { useAuthStore } from './stores/auth'
+import { useCampaignStore } from './stores/campaign'
 
 const auth = useAuthStore()
+const campaignStore = useCampaignStore()
 const router = useRouter()
+
+onMounted(() => {
+  if (auth.isAuthenticated) campaignStore.fetchCampaigns()
+})
+
+watch(
+  () => auth.isAuthenticated,
+  (authed) => {
+    if (authed) campaignStore.fetchCampaigns()
+    else campaignStore.reset()
+  },
+)
+
+function onCampaignChange(e: Event) {
+  const val = (e.target as HTMLSelectElement).value
+  if (val === '__manage__') {
+    router.push({ name: 'campaigns' })
+    return
+  }
+  campaignStore.setActiveCampaign(val || null)
+}
 
 async function handleLogout() {
   try {
     await auth.signOut()
+    campaignStore.reset()
     showToast('Signed out', 'info')
     router.push('/login')
   } catch {
@@ -29,6 +54,22 @@ async function handleLogout() {
             <div class="brand-sub">Campaign tools & notes</div>
           </div>
           <div class="controls">
+            <select
+              v-if="auth.isAuthenticated && campaignStore.campaigns.length > 0"
+              class="campaign-select"
+              :value="campaignStore.activeCampaignId ?? ''"
+              @change="onCampaignChange"
+            >
+              <option value="" disabled>Select campaign</option>
+              <option
+                v-for="c in campaignStore.campaigns"
+                :key="c.id"
+                :value="c.id"
+              >
+                {{ c.name }}
+              </option>
+              <option value="__manage__">Manage campaigns...</option>
+            </select>
             <span v-if="auth.isAuthenticated" class="user-greeting">
               {{ auth.displayName }}
             </span>
@@ -38,10 +79,11 @@ async function handleLogout() {
 
         <nav class="nav">
           <RouterLink to="/" class="nav-link">Home</RouterLink>
-          <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
-          <RouterLink to="/links" class="nav-link">Links</RouterLink>
-          <RouterLink to="/about" class="nav-link">Profile</RouterLink>
           <template v-if="auth.isAuthenticated">
+            <RouterLink to="/campaigns" class="nav-link">Campaigns</RouterLink>
+            <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
+            <RouterLink to="/links" class="nav-link">Links</RouterLink>
+            <RouterLink to="/characters" class="nav-link">Characters</RouterLink>
             <button type="button" class="nav-link nav-btn" @click="handleLogout">
               Logout
             </button>
@@ -77,5 +119,25 @@ async function handleLogout() {
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
+}
+
+.campaign-select {
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--banner-ink, var(--dnd-paper));
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  max-width: 160px;
+}
+.campaign-select:focus {
+  outline: 2px solid var(--dnd-accent);
+  outline-offset: 2px;
+}
+.campaign-select option {
+  background: var(--dnd-paper);
+  color: var(--dnd-ink);
 }
 </style>

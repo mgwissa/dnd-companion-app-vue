@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { showToast, clearToastTimer } from '@/composables/useToast'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
+import { useCampaignStore } from '@/stores/campaign'
 
-type Note = { id: string; title: string; body: string; updatedAt: number; tags: string[] }
+type Note = {
+  id: string
+  title: string
+  body: string
+  updatedAt: number
+  tags: string[]
+  isShared: boolean
+  userId: string
+}
 
 interface DbNote {
   id: string
   user_id: string
+  campaign_id: string | null
   title: string
   body: string
   tags: string[]
+  is_shared: boolean
   updated_at: string
   created_at: string
 }
@@ -22,11 +33,14 @@ function dbToNote(row: DbNote): Note {
     title: row.title,
     body: row.body,
     tags: row.tags ?? [],
+    isShared: row.is_shared,
+    userId: row.user_id,
     updatedAt: new Date(row.updated_at).getTime(),
   }
 }
 
 const auth = useAuthStore()
+const campaignStore = useCampaignStore()
 
 const notes = ref<Note[]>([])
 const activeId = ref<string | null>(null)
@@ -35,6 +49,7 @@ const loading = ref(false)
 const title = ref('')
 const body = ref('')
 const editorTags = ref<string[]>([])
+const editorShared = ref(false)
 
 const searchQuery = ref('')
 const selectedTagFilters = ref<string[]>([])
@@ -42,13 +57,18 @@ const newTagInput = ref('')
 
 const newTitle = ref('')
 const newBody = ref('')
+const newShared = ref(false)
+
+const isMyNote = (n: Note) => n.userId === auth.user?.id
 
 async function fetchNotes() {
+  if (!campaignStore.activeCampaignId) return
   loading.value = true
   try {
     const { data, error } = await supabase
       .from('notes')
       .select('*')
+      .eq('campaign_id', campaignStore.activeCampaignId)
       .order('updated_at', { ascending: false })
     if (error) throw error
     notes.value = (data as DbNote[]).map(dbToNote)
@@ -60,7 +80,13 @@ async function fetchNotes() {
   }
 }
 
+watch(() => campaignStore.activeCampaignId, () => {
+  activeId.value = null
+  fetchNotes()
+})
+
 async function createNote() {
+  if (!campaignStore.activeCampaignId) return
   const noteTitle = newTitle.value.trim() || `Untitled ${notes.value.length + 1}`
   const noteBody = newBody.value
 
@@ -69,9 +95,11 @@ async function createNote() {
       .from('notes')
       .insert({
         user_id: auth.user!.id,
+        campaign_id: campaignStore.activeCampaignId,
         title: noteTitle,
         body: noteBody,
         tags: [],
+        is_shared: newShared.value,
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -83,6 +111,7 @@ async function createNote() {
     selectNote(n.id)
     newTitle.value = ''
     newBody.value = ''
+    newShared.value = false
     showToast('Created', 'success')
   } catch (e) {
     console.warn('Failed to create note', e)
@@ -97,6 +126,7 @@ function selectNote(id: string) {
   title.value = n.title
   body.value = n.body
   editorTags.value = [...n.tags]
+  editorShared.value = n.isShared
 }
 
 async function deleteNote(id: string) {
@@ -145,9 +175,11 @@ async function importNotes(file: File | null) {
       .filter((n) => n.title || n.body)
       .map((n) => ({
         user_id: auth.user!.id,
+        campaign_id: campaignStore.activeCampaignId,
         title: n.title ?? '',
         body: n.body ?? '',
         tags: Array.isArray(n.tags) ? n.tags : [],
+        is_shared: false,
         updated_at: n.updatedAt ? new Date(n.updatedAt).toISOString() : new Date().toISOString(),
       }))
 
@@ -191,6 +223,7 @@ async function saveActive() {
         title: title.value,
         body: body.value,
         tags: [...editorTags.value],
+        is_shared: editorShared.value,
         updated_at: now.toISOString(),
       })
       .eq('id', activeId.value)
@@ -201,6 +234,7 @@ async function saveActive() {
       title: title.value,
       body: body.value,
       tags: [...editorTags.value],
+      isShared: editorShared.value,
       updatedAt: now.getTime(),
     }
     showToast('Saved', 'success')
@@ -310,6 +344,7 @@ function tagsEqual(a: string[], b: string[]): boolean {
 const unsaved = computed(() => {
   if (!activeNote.value) return false
   if (activeNote.value.title !== title.value || activeNote.value.body !== body.value) return true
+  if (activeNote.value.isShared !== editorShared.value) return true
   return !tagsEqual(activeNote.value.tags, editorTags.value)
 })
 </script>
@@ -335,14 +370,16 @@ const unsaved = computed(() => {
               {{ unsaved ? 'Unsaved changes' : 'Saved' }}
             </span>
             <div class="editor-actions">
-              <button
-                type="button"
-                class="btn btn--secondary"
-                :disabled="!unsaved"
-                @click="saveActive"
-              >
-                Save
-              </button>
+              <template v-if="isMyNote(activeNote!)">
+                <button
+                  type="button"
+                  class="btn btn--secondary"
+                  :disabled="!unsaved"
+                  @click="saveActive"
+                >
+                  Save
+                </button>
+              </template>
               <button
                 type="button"
                 class="btn btn--outline"
@@ -351,6 +388,7 @@ const unsaved = computed(() => {
                 Close
               </button>
               <button
+                v-if="isMyNote(activeNote!)"
                 type="button"
                 class="btn btn--danger"
                 aria-label="Delete this note"
@@ -361,6 +399,14 @@ const unsaved = computed(() => {
             </div>
           </div>
         </header>
+
+        <div v-if="isMyNote(activeNote!)" class="shared-toggle">
+          <label class="toggle-label">
+            <input v-model="editorShared" type="checkbox" class="toggle-check" />
+            <span class="toggle-text">{{ editorShared ? 'Shared with campaign' : 'Private note' }}</span>
+          </label>
+        </div>
+        <div v-else class="shared-badge">Shared by another player</div>
 
         <div class="editor-tags">
           <span class="editor-tags-label">Tags</span>
@@ -448,6 +494,10 @@ const unsaved = computed(() => {
             <button type="button" class="btn btn--primary" @click="createNote">
               Add note
             </button>
+            <label class="toggle-label">
+              <input v-model="newShared" type="checkbox" class="toggle-check" />
+              <span class="toggle-text">{{ newShared ? 'Shared' : 'Private' }}</span>
+            </label>
           </div>
         </div>
       </template>
@@ -456,7 +506,7 @@ const unsaved = computed(() => {
     <!-- Notes list with search and filters -->
     <section class="notes-panel" aria-label="Your notes">
       <header class="panel-header">
-        <h2 class="section-heading">Your notes</h2>
+        <h2 class="section-heading">Campaign notes</h2>
         <form
           class="search-form"
           role="search"
@@ -524,7 +574,11 @@ const unsaved = computed(() => {
             :aria-current="n.id === activeId ? 'true' : undefined"
             @click="selectNote(n.id)"
           >
-            <span class="note-card-title">{{ n.title }}</span>
+            <span class="note-card-title">
+              {{ n.title }}
+              <span v-if="n.isShared && !isMyNote(n)" class="shared-indicator">shared</span>
+              <span v-else-if="n.isShared" class="shared-indicator shared-indicator--mine">shared</span>
+            </span>
             <span v-if="n.tags.length" class="note-card-tags">
               <span
                 v-for="t in n.tags.slice(0, 3)"
@@ -542,6 +596,7 @@ const unsaved = computed(() => {
             </time>
           </button>
           <button
+            v-if="isMyNote(n)"
             type="button"
             class="note-card-delete"
             aria-label="Delete this note"
@@ -1060,6 +1115,47 @@ const unsaved = computed(() => {
 .note-card-delete:hover {
   color: #b33a2a;
   background: rgba(179, 58, 42, 0.08);
+}
+
+/* Shared toggle / badge */
+.shared-toggle {
+  display: flex;
+  align-items: center;
+}
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--dnd-ink);
+}
+.toggle-check {
+  accent-color: var(--dnd-accent);
+}
+.toggle-text {
+  user-select: none;
+}
+.shared-badge {
+  font-size: 0.8rem;
+  color: var(--dnd-muted);
+  font-style: italic;
+}
+.shared-indicator {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--dnd-muted);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+}
+.shared-indicator--mine {
+  background: rgba(139, 58, 47, 0.12);
+  color: var(--dnd-accent);
 }
 
 @media (max-width: 600px) {
