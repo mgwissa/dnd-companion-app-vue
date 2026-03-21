@@ -46,6 +46,7 @@ async function fetchCharacters() {
       .select('*')
       .eq('user_id', auth.user!.id)
       .eq('campaign_id', campaignId.value)
+      .eq('is_npc', false)
       .order('created_at')
     if (error) throw error
     characters.value = data as Character[]

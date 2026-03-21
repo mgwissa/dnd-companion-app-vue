@@ -44,6 +44,15 @@ const campaignStore = useCampaignStore()
         <span class="action-arrow" aria-hidden="true">→</span>
       </RouterLink>
 
+      <RouterLink to="/healer" class="action-card">
+        <span class="action-icon" aria-hidden="true">&#x2764;&#xFE0F;&#x200D;&#x1FA79;</span>
+        <div class="action-text">
+          <h2 class="action-title">Healer's Kit</h2>
+          <p class="action-desc">Track the party's health. Heal allies, apply damage, and keep everyone alive.</p>
+        </div>
+        <span class="action-arrow" aria-hidden="true">→</span>
+      </RouterLink>
+
       <RouterLink to="/links" class="action-card">
         <span class="action-icon" aria-hidden="true">🔗</span>
         <div class="action-text">

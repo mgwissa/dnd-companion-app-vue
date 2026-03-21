@@ -62,6 +62,12 @@ const router = createRouter({
       component: () => import('@/views/AboutView.vue'),
       meta: { requiresAuth: true, requiresCampaign: true },
     },
+    {
+      path: '/healer',
+      name: 'healer',
+      component: () => import('@/views/HealerView.vue'),
+      meta: { requiresAuth: true, requiresCampaign: true },
+    },
   ],
 })
 

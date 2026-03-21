@@ -84,6 +84,7 @@ async function handleLogout() {
             <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
             <RouterLink to="/links" class="nav-link">Links</RouterLink>
             <RouterLink to="/characters" class="nav-link">Characters</RouterLink>
+            <RouterLink to="/healer" class="nav-link">Healer's Kit</RouterLink>
             <button type="button" class="nav-link nav-btn" @click="handleLogout">
               Logout
             </button>
