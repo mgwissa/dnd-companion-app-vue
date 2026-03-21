@@ -104,7 +104,11 @@ async function uploadAvatar(characterId: string): Promise<string | null> {
   const { error } = await supabase.storage
     .from('avatars')
     .upload(path, avatarFile.value, { upsert: true })
-  if (error) throw error
+  if (error) {
+    console.warn('Avatar upload failed:', error.message)
+    showToast('Avatar upload failed — character saved without picture', 'error')
+    return null
+  }
   return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
 }
 
