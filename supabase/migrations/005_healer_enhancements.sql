@@ -8,7 +8,10 @@ ALTER TABLE characters ADD COLUMN is_npc  boolean NOT NULL DEFAULT false;
 
 -- ============================================================
 -- 2. Replace the HP update RPC to also handle temp_hp
+--    Drop the old 3-param signature first to avoid overload
 -- ============================================================
+
+DROP FUNCTION IF EXISTS update_character_hp(uuid, integer, integer);
 
 CREATE OR REPLACE FUNCTION update_character_hp(
   p_character_id uuid,
