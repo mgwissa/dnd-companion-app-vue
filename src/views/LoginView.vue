@@ -18,6 +18,21 @@ const isLogin = computed(() => mode.value === 'login')
 const heading = computed(() => (isLogin.value ? 'Sign In' : 'Create Account'))
 const submitLabel = computed(() => (isLogin.value ? 'Sign In' : 'Register'))
 
+function formatAuthError(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: string }).message === 'string') {
+    const m = (err as { message: string }).message
+    if (/failed to fetch|networkerror|load failed|fetch/i.test(m)) {
+      return (
+        'Cannot reach Supabase (network error). Confirm VITE_SUPABASE_URL has no spaces, restart `npm run dev` after editing .env.local, ' +
+        'and check the project is active in the Supabase dashboard. If problems persist, try the legacy anon key (JWT) from Settings → API → Legacy API keys.'
+      )
+    }
+    return m
+  }
+  if (err instanceof Error) return err.message
+  return 'Something went wrong'
+}
+
 function toggleMode() {
   mode.value = isLogin.value ? 'register' : 'login'
   errorMsg.value = ''
@@ -54,8 +69,7 @@ async function handleSubmit() {
       }
     }
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Something went wrong'
-    errorMsg.value = message
+    errorMsg.value = formatAuthError(err)
   } finally {
     busy.value = false
   }

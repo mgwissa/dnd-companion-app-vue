@@ -4,8 +4,11 @@ import { onMounted, watch } from 'vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import DndToast from './components/DndToast.vue'
 import { getToastState, showToast } from './composables/useToast'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import { useAuthStore } from './stores/auth'
 import { useCampaignStore } from './stores/campaign'
+
+const showSupabaseDevHint = import.meta.env.DEV && !isSupabaseConfigured
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
@@ -46,7 +49,11 @@ async function handleLogout() {
 
 <template>
   <div class="site-root">
-    <div class="parallax">
+    <div v-if="showSupabaseDevHint" class="dev-env-banner" role="status">
+      Add <code>.env.local</code> with <code>VITE_SUPABASE_URL</code> and
+      <code>VITE_SUPABASE_ANON_KEY</code> to enable login and synced data.
+    </div>
+    <div class="app-shell">
       <header class="banner">
         <div class="banner-inner">
           <div class="brand">
@@ -104,6 +111,22 @@ async function handleLogout() {
 </template>
 
 <style scoped>
+.dev-env-banner {
+  padding: 0.6rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-family: system-ui, sans-serif;
+  background: #3d2914;
+  color: #f5e6c8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.dev-env-banner code {
+  font-size: 0.8em;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
 .user-greeting {
   font-size: 0.85rem;
   color: var(--banner-ink, var(--dnd-paper));
@@ -125,9 +148,6 @@ async function handleLogout() {
 .campaign-select {
   padding: 0.3rem 0.5rem;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--banner-ink, var(--dnd-paper));
   font-family: inherit;
   font-size: 0.82rem;
   cursor: pointer;

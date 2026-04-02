@@ -71,11 +71,13 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to) => {
-  const auth = useAuthStore()
+const AUTH_READY_MS = 12_000
 
-  if (auth.loading) {
-    await new Promise<void>((resolve) => {
+function waitForAuthReady(auth: ReturnType<typeof useAuthStore>) {
+  if (!auth.loading) return Promise.resolve()
+
+  return Promise.race([
+    new Promise<void>((resolve) => {
       const stop = auth.$subscribe(() => {
         if (!auth.loading) {
           stop()
@@ -86,8 +88,15 @@ router.beforeEach(async (to) => {
         stop()
         resolve()
       }
-    })
-  }
+    }),
+    new Promise<void>((resolve) => setTimeout(resolve, AUTH_READY_MS)),
+  ])
+}
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+
+  await waitForAuthReady(auth)
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -40,6 +40,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function signOut() {
+    if (!isSupabaseConfigured) {
+      user.value = null
+      session.value = null
+      return
+    }
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     user.value = null
@@ -49,15 +54,21 @@ export const useAuthStore = defineStore('auth', () => {
   async function init() {
     loading.value = true
     try {
+      if (!isSupabaseConfigured) {
+        setSession(null)
+        return
+      }
       const { data } = await supabase.auth.getSession()
       setSession(data.session)
     } finally {
       loading.value = false
     }
 
-    supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
-    })
+    if (isSupabaseConfigured) {
+      supabase.auth.onAuthStateChange((_event, s) => {
+        setSession(s)
+      })
+    }
   }
 
   return {
