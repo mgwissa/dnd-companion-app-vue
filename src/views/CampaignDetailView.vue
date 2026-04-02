@@ -281,7 +281,7 @@ async function handleLeave() {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   background: var(--dnd-accent);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
 }
@@ -323,7 +323,7 @@ async function handleLeave() {
   padding: 0.3rem 0.6rem;
   font-size: 0.8rem;
   background: var(--dnd-accent-2);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
   border: none;
   border-radius: 6px;
   font-weight: 600;
@@ -335,7 +335,7 @@ async function handleLeave() {
 }
 .btn-secondary {
   background: var(--dnd-accent-2);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
 }
 .btn-secondary:hover {
   filter: brightness(1.08);

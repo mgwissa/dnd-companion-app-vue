@@ -240,7 +240,7 @@ async function handleSubmit() {
 }
 .btn-primary {
   background: var(--dnd-accent);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.1);

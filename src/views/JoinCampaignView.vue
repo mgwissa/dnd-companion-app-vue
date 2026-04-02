@@ -93,7 +93,7 @@ onMounted(async () => {
   padding: 0.55rem 1.25rem;
   border-radius: 8px;
   background: var(--dnd-accent);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
   font-weight: 600;
   font-family: inherit;
   text-decoration: none;

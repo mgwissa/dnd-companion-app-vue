@@ -435,7 +435,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 .active-badge {
   font-size: 0.65rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.05em;
-  background: var(--dnd-accent); color: var(--dnd-paper);
+  background: var(--dnd-accent); color: var(--dnd-on-accent);
   padding: 0.1rem 0.4rem; border-radius: 4px;
   align-self: flex-start;
 }
@@ -461,7 +461,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
   font-size: 0.9rem; transition: filter 0.15s, opacity 0.15s;
 }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-primary { background: var(--dnd-accent); color: var(--dnd-paper); }
+.btn-primary { background: var(--dnd-accent); color: var(--dnd-on-accent); }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
 .btn-outline {
   background: transparent; color: var(--dnd-muted);
@@ -471,7 +471,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 .btn-sm {
   padding: 0.3rem 0.65rem; font-size: 0.8rem;
   border-radius: 6px; background: var(--dnd-accent-2);
-  color: var(--dnd-paper); border: none;
+  color: var(--dnd-on-accent); border: none;
   font-weight: 600; font-family: inherit; cursor: pointer;
 }
 .btn-sm:hover { filter: brightness(1.08); }

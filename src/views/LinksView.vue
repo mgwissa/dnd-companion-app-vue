@@ -240,7 +240,7 @@ onMounted(loadFromStorage)
   font-weight: 600;
   cursor: pointer;
   background: var(--dnd-accent-2);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
 }
 .btn.primary {
   background: var(--dnd-accent);

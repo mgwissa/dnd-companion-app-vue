@@ -543,7 +543,7 @@ const isOwn = (c: PartyCharacter) => c.user_id === auth.user?.id
 .add-input--name { flex: 1; min-width: 10rem; }
 .add-input--hp { width: 6rem; text-align: center; }
 
-.btn-add { background: var(--dnd-accent); color: var(--dnd-paper); }
+.btn-add { background: var(--dnd-accent); color: var(--dnd-on-accent); }
 .btn-add:hover:not(:disabled) { filter: brightness(1.1); }
 
 /* ============================================================
@@ -695,7 +695,7 @@ const isOwn = (c: PartyCharacter) => c.user_id === auth.user?.id
   padding: 0.12rem 0.4rem;
   border-radius: 4px;
 }
-.own-badge { background: var(--dnd-accent-2); color: var(--dnd-paper); }
+.own-badge { background: var(--dnd-accent-2); color: var(--dnd-on-accent); }
 .npc-badge { background: rgba(0, 0, 0, 0.07); color: var(--dnd-muted); }
 
 /* ---- Status badge ---- */
@@ -950,7 +950,7 @@ const isOwn = (c: PartyCharacter) => c.user_id === auth.user?.id
 .btn-set-max { background: rgba(0, 0, 0, 0.05); color: var(--dnd-muted); }
 .btn-set-max:hover { background: rgba(0, 0, 0, 0.08); color: var(--dnd-ink); }
 
-.btn-save { background: var(--dnd-accent); color: var(--dnd-paper); }
+.btn-save { background: var(--dnd-accent); color: var(--dnd-on-accent); }
 .btn-save:hover { filter: brightness(1.1); }
 
 .btn-cancel {

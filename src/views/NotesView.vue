@@ -660,7 +660,7 @@ const unsaved = computed(() => {
 /* ----- Editor (top section) ----- */
 .editor {
   padding: var(--notes-space-xl);
-  background: var(--dnd-paper);
+  background: var(--dnd-elevated);
   border-radius: var(--notes-radius-lg);
   box-shadow: var(--notes-shadow-lg);
   border: var(--notes-border);
@@ -691,7 +691,7 @@ const unsaved = computed(() => {
   padding: var(--notes-space-sm) var(--notes-space-md);
   border-radius: var(--notes-radius);
   border: var(--notes-border);
-  background: var(--dnd-bg);
+  background: var(--dnd-input-bg);
   color: var(--dnd-ink);
   font-size: 1.25rem;
   font-weight: 600;
@@ -768,7 +768,7 @@ const unsaved = computed(() => {
   padding: var(--notes-space-xs) var(--notes-space-sm);
   border-radius: var(--notes-radius);
   border: var(--notes-border);
-  background: var(--dnd-bg);
+  background: var(--dnd-input-bg);
   color: var(--dnd-ink);
   font-size: 0.875rem;
 }
@@ -783,7 +783,7 @@ const unsaved = computed(() => {
   padding: var(--notes-space-md);
   border-radius: var(--notes-radius);
   border: var(--notes-border);
-  background: var(--dnd-bg);
+  background: var(--dnd-input-bg);
   color: var(--dnd-ink);
   font-size: 0.9375rem;
   line-height: 1.6;
@@ -809,7 +809,7 @@ const unsaved = computed(() => {
   padding: var(--notes-space-sm) var(--notes-space-md);
   border-radius: var(--notes-radius);
   border: var(--notes-border);
-  background: var(--dnd-bg);
+  background: var(--dnd-input-bg);
   color: var(--dnd-ink);
   font-size: 0.9375rem;
   font-family: inherit;
@@ -858,14 +858,14 @@ const unsaved = computed(() => {
 }
 .btn--primary {
   background: var(--dnd-accent);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
 }
 .btn--primary:hover:not(:disabled) {
   filter: brightness(1.08);
 }
 .btn--secondary {
   background: var(--dnd-accent-2);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
 }
 .btn--secondary:hover:not(:disabled) {
   filter: brightness(1.06);
@@ -906,7 +906,7 @@ const unsaved = computed(() => {
 /* ----- Notes panel (below editor) ----- */
 .notes-panel {
   padding: var(--notes-space-xl);
-  background: var(--dnd-paper);
+  background: var(--dnd-elevated);
   border-radius: var(--notes-radius-lg);
   box-shadow: var(--notes-shadow-lg);
   border: var(--notes-border);
@@ -947,7 +947,7 @@ const unsaved = computed(() => {
   padding: var(--notes-space-sm) var(--notes-space-md);
   border-radius: var(--notes-radius);
   border: var(--notes-border);
-  background: var(--dnd-bg);
+  background: var(--dnd-input-bg);
   color: var(--dnd-ink);
   font-size: 0.9375rem;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -998,7 +998,7 @@ const unsaved = computed(() => {
 .tag-filter--on {
   background: var(--dnd-accent);
   border-color: var(--dnd-accent);
-  color: var(--dnd-paper);
+  color: var(--dnd-on-accent);
 }
 .tag-filter-clear {
   padding: var(--notes-space-xs) var(--notes-space-sm);
@@ -1156,6 +1156,56 @@ const unsaved = computed(() => {
 .shared-indicator--mine {
   background: rgba(139, 58, 47, 0.12);
   color: var(--dnd-accent);
+}
+
+/* Dark theme: visible borders + tinted surfaces (light theme keeps default tokens) */
+:global(.dark) .notes-page {
+  --notes-border: 1px solid rgba(255, 255, 255, 0.12);
+  --notes-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  --notes-shadow-lg: 0 8px 36px rgba(0, 0, 0, 0.55);
+}
+
+:global(.dark) .notes-page .tag {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .notes-page .tag-filter {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .notes-page .tag-filter:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+:global(.dark) .notes-page .note-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .notes-page .note-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+:global(.dark) .notes-page .note-card--active {
+  border-color: var(--dnd-accent);
+  background: rgba(201, 107, 90, 0.14);
+  box-shadow: 0 0 0 1px rgba(201, 107, 90, 0.35);
+}
+
+:global(.dark) .notes-page .note-card-tag {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(.dark) .notes-page .shared-indicator {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:global(.dark) .notes-page .btn--outline:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dnd-ink);
 }
 
 @media (max-width: 600px) {

@@ -122,7 +122,7 @@ const campaignStore = useCampaignStore()
   width: 100%;
   padding: 1.5rem 1.25rem;
   border-radius: 12px;
-  background: var(--dnd-paper);
+  background: var(--dnd-elevated);
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   text-decoration: none;
@@ -188,7 +188,7 @@ const campaignStore = useCampaignStore()
 .active-campaign {
   margin-top: 1.5rem;
   padding: 0.75rem 1.25rem;
-  background: var(--dnd-paper);
+  background: var(--dnd-elevated);
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 8px;
   font-size: 0.9rem;
@@ -209,6 +209,21 @@ const campaignStore = useCampaignStore()
   font-size: 0.8125rem;
   color: var(--dnd-muted);
   line-height: 1.5;
+}
+
+:global(.dark) .action-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}
+:global(.dark) .action-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+:global(.dark) .action-icon {
+  background: rgba(255, 255, 255, 0.06);
+}
+:global(.dark) .active-campaign {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 @media (max-width: 380px) {

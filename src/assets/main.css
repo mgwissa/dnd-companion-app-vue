@@ -10,10 +10,15 @@
 :root {
   --dnd-bg: #f6efe1; /* parchment */
   --dnd-paper: #fbf7ed;
+  /* Nested surfaces (fallback: same as paper / bg in light theme) */
+  --dnd-elevated: var(--dnd-paper);
+  --dnd-input-bg: var(--dnd-bg);
   --dnd-ink: #2b2b2b;
   --dnd-accent: #8b3a2f; /* blood/aged leather */
   --dnd-accent-2: #9b7a2c; /* brass */
   --dnd-muted: #6b6b6b;
+  /* Text on accent-colored buttons */
+  --dnd-on-accent: var(--dnd-paper);
 }
 
 body {
@@ -25,19 +30,29 @@ body {
 .light {
   --dnd-bg: #f6efe1;
   --dnd-paper: #fbf7ed;
+  --dnd-elevated: #fbf7ed;
+  --dnd-input-bg: #f6efe1;
   --dnd-ink: #2b2b2b;
   --dnd-accent: #8b3a2f;
   --dnd-accent-2: #9b7a2c;
   --dnd-muted: #6b6b6b;
+  --dnd-on-accent: #fbf7ed;
 }
 
 .dark {
-  --dnd-bg: #0b0b0d;
-  --dnd-paper: #121217; /* dark parchment */
-  --dnd-ink: #e9e6dc;
-  --dnd-accent: #b35a48;
-  --dnd-accent-2: #c9a24a;
-  --dnd-muted: #9a98a0;
+  /* Layer 0: page canvas — soft charcoal (not pure black) */
+  --dnd-bg: #14141c;
+  /* Layer 1: main shell / page-wrap */
+  --dnd-paper: #1c1d26;
+  /* Layer 2: nested cards (editor, panels) */
+  --dnd-elevated: #262732;
+  /* Inset fields — slightly darker than elevated */
+  --dnd-input-bg: #181922;
+  --dnd-ink: #ece9e0;
+  --dnd-accent: #c96b5a;
+  --dnd-accent-2: #d4b06a;
+  --dnd-muted: #a8a6ae;
+  --dnd-on-accent: #f5f2eb;
 }
 
 .site-root {
@@ -99,8 +114,10 @@ body {
 }
 
 .dark .page-wrap {
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.55);
 }
 
 /* Theme-specific header overrides */
@@ -132,9 +149,18 @@ body {
 }
 
 .dark .banner {
-  --banner-bg: linear-gradient(90deg, #0b0b0d, #1a1410);
+  --banner-bg: linear-gradient(180deg, #1e1f2a 0%, #1a1b24 100%);
   --banner-ink: var(--dnd-ink);
   --banner-sub: var(--dnd-muted);
+  --banner-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+.dark .banner .nav {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .banner .nav-link:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 a,
