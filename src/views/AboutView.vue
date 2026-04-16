@@ -258,7 +258,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
           type="url"
           inputmode="url"
           autocomplete="url"
-          placeholder="https://dndbeyond.com/... or Google Doc, etc."
+          placeholder="https://... (online sheet, Google Doc, etc.)"
         />
       </div>
 

@@ -10,9 +10,9 @@ const campaignStore = useCampaignStore()
 <template>
   <main class="home">
     <header class="hero">
-      <h1 class="hero-title">DND Companion</h1>
+      <h1 class="hero-title">TTRPG Companion</h1>
       <p class="hero-tagline">
-        Campaign tools, shared notes, and character management for your party.
+        Campaigns, shared notes, characters, and party tools for tabletop RPGs.
       </p>
     </header>
 

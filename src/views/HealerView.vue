@@ -190,7 +190,7 @@ async function saveMaxHp(c: PartyCharacter) {
   showToast(`Max HP set to ${maxHpInput.value}`, 'success')
 }
 
-// ---- Temp HP (D&D rules: doesn't stack, take higher) ----
+// ---- Temp HP (common TTRPG rule: doesn't stack, take higher) ----
 
 function startEditTemp(c: PartyCharacter) {
   tempHpEditing.value = c.id

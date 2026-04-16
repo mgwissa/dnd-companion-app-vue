@@ -1,6 +1,12 @@
-# dnd-companion-app-vue
+# TTRPG Companion
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue app for **campaigns, notes, characters, links, and party HP**—system-neutral tabletop RPG session tools.
+
+## Stack
+
+Vue 3, Vite, Pinia, Vue Router, Supabase.
+
+This project began as a Vite + Vue template; see Vue / Vite docs for generic tooling notes below.
 
 ## Recommended IDE Setup
 

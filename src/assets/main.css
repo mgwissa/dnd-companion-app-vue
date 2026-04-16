@@ -6,7 +6,7 @@
   font-weight: normal;
 }
 
-/* D&D themed palette and parchment background */
+/* Theme palette (light: parchment tones; dark: charcoal stack) */
 :root {
   --dnd-bg: #f6efe1; /* parchment */
   --dnd-paper: #fbf7ed;

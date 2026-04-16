@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="logo-grad" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c96b5a" />
+      <stop offset="1" stop-color="#7a3d32" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="40" height="40" rx="11" fill="url(#logo-grad)" />
+  <rect x="14" y="15" width="8" height="18" rx="1" fill="#f5f0e8" />
+  <rect x="26" y="15" width="8" height="18" rx="1" fill="#f5f0e8" />
+  <rect x="15.5" y="18" width="5" height="1.2" rx="0.3" fill="#5c2d26" opacity="0.45" />
+  <rect x="15.5" y="21" width="4" height="1.2" rx="0.3" fill="#5c2d26" opacity="0.45" />
+  <rect x="27.5" y="18" width="5" height="1.2" rx="0.3" fill="#5c2d26" opacity="0.45" />
+  <rect x="27.5" y="21" width="4" height="1.2" rx="0.3" fill="#5c2d26" opacity="0.45" />
+</svg>

@@ -10,7 +10,7 @@ function readProjectUrl(): string {
   } catch {
     if (import.meta.env.DEV) {
       console.error(
-        '[dnd-companion] VITE_SUPABASE_URL must be a full URL (e.g. https://xxxx.supabase.co). Check for typos or spaces in .env.local.',
+        '[ttrpg-companion] VITE_SUPABASE_URL must be a full URL (e.g. https://xxxx.supabase.co). Check for typos or spaces in .env.local.',
       )
     }
     return ''
@@ -34,7 +34,7 @@ const placeholderKey =
 
 if (!isSupabaseConfigured && import.meta.env.DEV) {
   console.warn(
-    '[dnd-companion] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Add a .env.local (see GitHub Actions secrets / Supabase dashboard). Auth and data features stay off until then.',
+    '[ttrpg-companion] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Add a .env.local (see GitHub Actions secrets / Supabase dashboard). Auth and data features stay off until then.',
   )
 }
 

@@ -155,7 +155,7 @@ function exportNotes() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'dnd-notes.json'
+  a.download = 'ttrpg-notes.json'
   a.click()
   URL.revokeObjectURL(url)
   showToast('Exported notes', 'info')

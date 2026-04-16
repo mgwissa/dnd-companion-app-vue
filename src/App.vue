@@ -10,6 +10,8 @@ import { useCampaignStore } from './stores/campaign'
 
 const showSupabaseDevHint = import.meta.env.DEV && !isSupabaseConfigured
 
+const logoUrl = `${import.meta.env.BASE_URL}logo.svg`
+
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
 const router = useRouter()
@@ -57,8 +59,19 @@ async function handleLogout() {
       <header class="banner">
         <div class="banner-inner">
           <div class="brand">
-            <RouterLink to="/" class="brand-title">DND Companion</RouterLink>
-            <div class="brand-sub">Campaign tools & notes</div>
+            <RouterLink to="/" class="brand-link">
+              <img
+                :src="logoUrl"
+                width="40"
+                height="40"
+                class="brand-logo"
+                alt=""
+              />
+              <span class="brand-text">
+                <span class="brand-title">TTRPG Companion</span>
+                <span class="brand-sub">Campaign & session tools</span>
+              </span>
+            </RouterLink>
           </div>
           <div class="controls">
             <select
@@ -160,5 +173,37 @@ async function handleLogout() {
 .campaign-select option {
   background: var(--dnd-paper);
   color: var(--dnd-ink);
+}
+
+.brand-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.brand-text .brand-title {
+  display: block;
+}
+
+.brand-text .brand-sub {
+  display: block;
 }
 </style>
