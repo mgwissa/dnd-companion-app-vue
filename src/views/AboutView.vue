@@ -13,6 +13,7 @@ interface Character {
   avatar_url: string
   backstory: string
   backstory_url: string
+  character_sheet_url: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -29,6 +30,7 @@ const editId = ref<string | null>(null)
 const charName = ref('')
 const backstory = ref('')
 const backstoryUrl = ref('')
+const characterSheetUrl = ref('')
 const avatarFile = ref<File | null>(null)
 const avatarPreview = ref<string | null>(null)
 const avatarUrl = ref('')
@@ -67,6 +69,7 @@ function startCreate() {
   charName.value = ''
   backstory.value = ''
   backstoryUrl.value = ''
+  characterSheetUrl.value = ''
   avatarUrl.value = ''
   avatarFile.value = null
   avatarPreview.value = null
@@ -78,6 +81,7 @@ function startEdit(c: Character) {
   charName.value = c.character_name
   backstory.value = c.backstory
   backstoryUrl.value = c.backstory_url
+  characterSheetUrl.value = c.character_sheet_url ?? ''
   avatarUrl.value = c.avatar_url
   avatarFile.value = null
   avatarPreview.value = null
@@ -129,6 +133,7 @@ async function handleSave() {
           character_name: charName.value.trim(),
           backstory: backstory.value,
           backstory_url: backstoryUrl.value.trim(),
+          character_sheet_url: characterSheetUrl.value.trim(),
           avatar_url: newAvatar,
           updated_at: new Date().toISOString(),
         })
@@ -145,6 +150,7 @@ async function handleSave() {
           character_name: charName.value.trim() || 'Unnamed Adventurer',
           backstory: backstory.value,
           backstory_url: backstoryUrl.value.trim(),
+          character_sheet_url: characterSheetUrl.value.trim(),
           is_active: isFirst,
         })
         .select()
@@ -243,6 +249,19 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
         <input id="backstory-url" v-model="backstoryUrl" class="input" placeholder="https://..." />
       </div>
 
+      <div class="field">
+        <label for="character-sheet-url" class="label">Character sheet link (optional)</label>
+        <input
+          id="character-sheet-url"
+          v-model="characterSheetUrl"
+          class="input"
+          type="url"
+          inputmode="url"
+          autocomplete="url"
+          placeholder="https://dndbeyond.com/... or Google Doc, etc."
+        />
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-primary" :disabled="saving" @click="handleSave">
           {{ saving ? 'Saving...' : editId ? 'Save' : 'Create' }}
@@ -274,8 +293,25 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 
           <p v-if="c.backstory" class="char-backstory">{{ c.backstory.slice(0, 120) }}{{ c.backstory.length > 120 ? '...' : '' }}</p>
 
-          <div v-if="c.backstory_url" class="char-link-row">
-            <a :href="c.backstory_url" target="_blank" rel="noopener noreferrer" class="char-link">Full backstory →</a>
+          <div v-if="c.backstory_url || c.character_sheet_url" class="char-links">
+            <a
+              v-if="c.backstory_url"
+              :href="c.backstory_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="char-link"
+            >
+              Full backstory →
+            </a>
+            <a
+              v-if="c.character_sheet_url"
+              :href="c.character_sheet_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="char-link"
+            >
+              Character sheet →
+            </a>
           </div>
 
           <div class="char-actions">
@@ -446,7 +482,12 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
   white-space: pre-wrap;
 }
 
-.char-link-row { margin: 0; }
+.char-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
 .char-link {
   color: var(--dnd-accent); font-weight: 600;
   font-size: 0.88rem; text-decoration: none;
