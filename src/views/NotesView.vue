@@ -216,6 +216,10 @@ function selectNote(id: string) {
 }
 
 async function deleteNote(id: string) {
+  const note = notes.value.find((item) => item.id === id)
+  const noteTitle = note?.title.trim() || 'this note'
+  if (!window.confirm(`Delete "${noteTitle}"? This cannot be undone.`)) return
+
   try {
     const { error } = await supabase.from('notes').delete().eq('id', id)
     if (error) throw error
