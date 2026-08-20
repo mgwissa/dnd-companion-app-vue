@@ -14,7 +14,7 @@ const isLight = computed({
 </script>
 
 <template>
-  <div class="theme-toggle-wrapper">
+  <div class="theme-toggle-wrapper" title="Toggle theme">
     <MoonIcon class="toggle-icon" :style="{ opacity: isLight ? 0.4 : 1 }" />
     <label class="switch">
       <input type="checkbox" v-model="isLight" />
@@ -27,14 +27,19 @@ const isLight = computed({
 <style scoped>
 .theme-toggle-wrapper {
   display: flex;
-  width: 150px;
+  width: auto;
+  gap: 0.35rem;
+  padding: 0.25rem 0.35rem;
   align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .toggle-icon {
   color: var(--banner-ink);
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
 }
 
 .slider-container {
@@ -46,8 +51,8 @@ const isLight = computed({
 .switch {
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 34px;
+  width: 34px;
+  height: 20px;
 }
 
 /* Hide default HTML checkbox */
@@ -73,17 +78,17 @@ const isLight = computed({
 .slider:before {
   position: absolute;
   content: '';
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
   background-color: white;
   -webkit-transition: 0.4s;
   transition: 0.4s;
 }
 
 input:checked + .slider {
-  background-color: hsla(160, 100%, 37%, 1);
+  background-color: var(--dnd-accent-2);
 }
 
 input:focus + .slider {
@@ -91,9 +96,9 @@ input:focus + .slider {
 }
 
 input:checked + .slider:before {
-  -webkit-transform: translateX(26px);
-  -ms-transform: translateX(26px);
-  transform: translateX(26px);
+  -webkit-transform: translateX(14px);
+  -ms-transform: translateX(14px);
+  transform: translateX(14px);
 }
 
 /* Rounded sliders */

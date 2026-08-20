@@ -91,6 +91,7 @@ async function handleLogout() {
               <option value="__manage__">Manage campaigns...</option>
             </select>
             <span v-if="auth.isAuthenticated" class="user-greeting">
+              <span class="user-avatar" aria-hidden="true">{{ auth.displayName?.charAt(0).toUpperCase() }}</span>
               {{ auth.displayName }}
             </span>
             <ThemeToggle />
@@ -141,6 +142,12 @@ async function handleLogout() {
 }
 
 .user-greeting {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
   font-size: 0.85rem;
   color: var(--banner-ink, var(--dnd-paper));
   opacity: 0.85;
@@ -148,6 +155,27 @@ async function handleLogout() {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 160px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--dnd-accent);
+  color: var(--dnd-on-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 .nav-btn {
@@ -159,12 +187,17 @@ async function handleLogout() {
 }
 
 .campaign-select {
-  padding: 0.3rem 0.5rem;
-  border-radius: 6px;
+  padding: 0.55rem 2rem 0.55rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--banner-ink, var(--dnd-paper));
   font-family: inherit;
   font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
-  max-width: 160px;
+  max-width: 190px;
+  appearance: auto;
 }
 .campaign-select:focus {
   outline: 2px solid var(--dnd-accent);
