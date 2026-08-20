@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { showToast, clearToastTimer } from '@/composables/useToast'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
@@ -371,6 +371,17 @@ const unsaved = computed(() => {
 
 <template>
   <main class="notes-page" role="main">
+    <nav class="campaign-context" aria-label="Campaign workspace">
+      <RouterLink to="/" class="context-home">{{ campaignStore.activeCampaign?.name ?? 'Campaign hub' }}</RouterLink>
+      <span class="context-divider" aria-hidden="true">/</span>
+      <span class="context-current">Notes</span>
+      <div class="context-links">
+        <RouterLink to="/" class="context-link">Hub</RouterLink>
+        <RouterLink to="/characters" class="context-link">Characters</RouterLink>
+        <RouterLink to="/healer" class="context-link">Health</RouterLink>
+        <RouterLink to="/links" class="context-link">Links</RouterLink>
+      </div>
+    </nav>
     <header class="page-intro">
       <p class="page-kicker">Campaign memory / shared journal</p>
       <h1 class="page-title">Notes</h1>
@@ -651,6 +662,51 @@ const unsaved = computed(() => {
   --notes-border: 1px solid rgba(0, 0, 0, 0.08);
   --notes-focus: 2px solid var(--dnd-accent);
   --notes-focus-offset: 2px;
+}
+
+.campaign-context {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(32, 36, 42, 0.1);
+  border-radius: 8px;
+  background: var(--dnd-elevated);
+  font-size: 0.78rem;
+}
+
+.context-home {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.context-divider {
+  color: var(--dnd-accent-2);
+}
+
+.context-current {
+  color: var(--dnd-muted);
+}
+
+.context-links {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.context-link {
+  padding: 0.3rem 0.5rem;
+  border-radius: 5px;
+  color: var(--dnd-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.context-link:hover {
+  color: var(--dnd-accent);
+  background: rgba(169, 76, 61, 0.08);
 }
 
 .notes-page {
@@ -1261,6 +1317,15 @@ const unsaved = computed(() => {
 @media (max-width: 600px) {
   .notes-page {
     padding: var(--notes-space-md);
+  }
+  .campaign-context {
+    flex-wrap: wrap;
+  }
+  .context-links {
+    width: 100%;
+    margin-left: 0;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(32, 36, 42, 0.08);
   }
   .editor-header {
     flex-direction: column;
