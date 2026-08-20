@@ -351,7 +351,11 @@ const unsaved = computed(() => {
 
 <template>
   <main class="notes-page" role="main">
-    <h1 class="page-title">Notes</h1>
+    <header class="page-intro">
+      <p class="page-kicker">Campaign memory / shared journal</p>
+      <h1 class="page-title">Notes</h1>
+      <p class="page-subtitle">Keep the important parts of the story within reach.</p>
+    </header>
 
     <!-- Editor / New note — always at the top -->
     <article class="editor" aria-label="Note editor">
@@ -618,7 +622,7 @@ const unsaved = computed(() => {
   --notes-space-lg: 1.5rem;
   --notes-space-xl: 2rem;
   --notes-radius: 8px;
-  --notes-radius-lg: 12px;
+  --notes-radius-lg: 10px;
   --notes-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   --notes-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
   --notes-border: 1px solid rgba(0, 0, 0, 0.08);
@@ -629,7 +633,7 @@ const unsaved = computed(() => {
 .notes-page {
   min-height: 100%;
   padding: var(--notes-space-lg);
-  max-width: 860px;
+  max-width: 1120px;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
@@ -649,12 +653,31 @@ const unsaved = computed(() => {
 }
 
 .page-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.75rem;
+  font-family: 'Spectral', serif;
+  font-size: clamp(2.1rem, 4vw, 3rem);
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.03em;
+}
+
+.page-intro {
+  padding: 0.75rem 0.25rem 0;
+}
+
+.page-kicker {
+  color: var(--dnd-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 0.45rem;
+}
+
+.page-subtitle {
+  color: var(--dnd-muted);
+  font-size: 0.95rem;
+  margin: 0.35rem 0 0;
 }
 
 /* ----- Editor (top section) ----- */
@@ -664,6 +687,7 @@ const unsaved = computed(() => {
   border-radius: var(--notes-radius-lg);
   box-shadow: var(--notes-shadow-lg);
   border: var(--notes-border);
+  border-top: 3px solid var(--dnd-accent-2);
   display: flex;
   flex-direction: column;
   gap: var(--notes-space-lg);
@@ -677,7 +701,7 @@ const unsaved = computed(() => {
 }
 
 .editor-heading {
-  font-family: 'Cinzel', serif;
+  font-family: 'Spectral', serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--dnd-ink);
@@ -910,6 +934,7 @@ const unsaved = computed(() => {
   border-radius: var(--notes-radius-lg);
   box-shadow: var(--notes-shadow-lg);
   border: var(--notes-border);
+  border-top: 3px solid #637b9b;
   display: flex;
   flex-direction: column;
   gap: var(--notes-space-md);
@@ -932,7 +957,7 @@ const unsaved = computed(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--dnd-muted);
+  color: var(--dnd-ink);
   margin: 0;
 }
 
@@ -1029,7 +1054,7 @@ const unsaved = computed(() => {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: var(--notes-space-md);
 }
 
@@ -1038,12 +1063,14 @@ const unsaved = computed(() => {
   flex-direction: column;
   border-radius: var(--notes-radius);
   border: var(--notes-border);
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--dnd-input-bg);
+  border-top: 2px solid transparent;
   transition: background 0.12s, border-color 0.15s, box-shadow 0.15s;
 }
 .note-card:hover {
   background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.14);
+  border-color: var(--dnd-accent-2);
+  border-top-color: var(--dnd-accent-2);
   box-shadow: var(--notes-shadow);
 }
 .note-card--active {
