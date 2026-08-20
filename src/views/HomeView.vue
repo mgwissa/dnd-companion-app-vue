@@ -132,6 +132,14 @@ onMounted(async () => {
   const requestedSession = typeof route.query.session === 'string' ? route.query.session : null
   if (requestedSession) await openSessionMode(requestedSession === 'new' ? undefined : requestedSession)
 })
+
+watch(
+  () => route.query.session,
+  async (session) => {
+    if (typeof session !== 'string' || sessionMode.value) return
+    await openSessionMode(session === 'new' ? undefined : session)
+  },
+)
 watch(
   [() => campaignStore.activeCampaignId, () => campaignStore.campaigns.length],
   loadCommandCenter,
