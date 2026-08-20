@@ -14,6 +14,7 @@ const recentNotes = ref<{ id: string; title: string; body: string; updated_at: s
 const party = ref<
   { id: string; character_name: string; avatar_url: string; max_hp: number; current_hp: number }[]
 >([])
+const openThreads = ref<{ id: string; title: string; is_done: boolean }[]>([])
 const dashboardLoading = ref(false)
 const latestSession = computed(
   () => recentNotes.value.find((note) => /session/i.test(note.title)) ?? null,
@@ -35,7 +36,7 @@ async function loadCommandCenter() {
   dashboardLoading.value = true
   try {
     const campaignId = activeCampaign.value.id
-    const [membersResult, notesResult, partyResult] = await Promise.all([
+    const [membersResult, notesResult, partyResult, threadsResult] = await Promise.all([
       campaignStore.fetchMembers(campaignId),
       supabase
         .from('notes')
@@ -51,12 +52,21 @@ async function loadCommandCenter() {
         .eq('is_npc', false)
         .order('character_name')
         .limit(6),
+      supabase
+        .from('campaign_threads')
+        .select('id, title, is_done')
+        .eq('campaign_id', campaignId)
+        .eq('is_done', false)
+        .order('created_at', { ascending: false })
+        .limit(5),
     ])
     void membersResult
     if (notesResult.error) throw notesResult.error
     if (partyResult.error) throw partyResult.error
+    if (threadsResult.error) throw threadsResult.error
     recentNotes.value = notesResult.data ?? []
     party.value = partyResult.data ?? []
+    openThreads.value = threadsResult.data ?? []
   } catch (error) {
     console.warn('Failed to load campaign snapshot', error)
   } finally {
@@ -167,6 +177,27 @@ watch(
           </div>
         </div>
       </article>
+    </section>
+
+    <section class="threads-snapshot" aria-labelledby="home-threads-heading">
+      <div class="panel-heading">
+        <div>
+          <span class="panel-kicker">Between sessions</span>
+          <h2 id="home-threads-heading">Open threads</h2>
+        </div>
+        <RouterLink to="/notes" class="panel-link">Manage threads <span aria-hidden="true">↗</span></RouterLink>
+      </div>
+      <div v-if="dashboardLoading" class="panel-empty">Loading open threads...</div>
+      <div v-else-if="openThreads.length === 0" class="panel-empty">
+        No open threads. The campaign is caught up.
+      </div>
+      <div v-else class="home-thread-list">
+        <RouterLink v-for="thread in openThreads" :key="thread.id" to="/notes" class="home-thread">
+          <span class="thread-bullet" aria-hidden="true">+</span>
+          <span>{{ thread.title }}</span>
+          <span class="thread-arrow" aria-hidden="true">↗</span>
+        </RouterLink>
+      </div>
     </section>
 
     <section class="mission-section">
@@ -421,6 +452,56 @@ watch(
 
 .snapshot-panel--party {
   border-top: 3px solid #4e8b70;
+}
+
+.threads-snapshot {
+  margin-bottom: 3rem;
+  padding: 1.35rem;
+  background: var(--dnd-elevated);
+  border: 1px solid rgba(32, 36, 42, 0.11);
+  border-top: 3px solid var(--dnd-accent-2);
+  border-radius: 9px;
+}
+
+.home-thread-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.45rem;
+}
+
+.home-thread {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border-radius: 6px;
+  background: var(--dnd-input-bg);
+  color: var(--dnd-ink);
+  font-size: 0.82rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.home-thread:hover {
+  background: rgba(184, 134, 53, 0.14);
+  color: var(--dnd-accent);
+}
+
+.home-thread > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-bullet {
+  color: var(--dnd-accent-2);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.thread-arrow {
+  margin-left: auto;
+  color: var(--dnd-accent);
 }
 
 .panel-heading {
