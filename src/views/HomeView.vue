@@ -23,29 +23,29 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
   <main v-if="auth.isAuthenticated && activeCampaign" class="command-center">
     <section class="command-hero">
       <div>
-        <p class="hero-kicker">Command center / active campaign</p>
+        <p class="hero-kicker">Campaign overview / active campaign</p>
         <h1 class="command-title">{{ activeCampaign.name }}</h1>
-        <p class="command-subtitle">The table is ready. Make your next move count.</p>
+        <p class="command-subtitle">Your campaign at a glance. Pick up where the story left off.</p>
       </div>
       <div class="campaign-signal">
         <span class="signal-dot" aria-hidden="true"></span>
-        <span>Campaign online</span>
+        <span>Campaign active</span>
       </div>
     </section>
 
     <section class="intel-grid" aria-label="Campaign intelligence">
       <article class="intel-card intel-card--primary">
-        <span class="intel-label">Party roster</span>
+        <span class="intel-label">Party members</span>
         <strong class="intel-value">{{ campaignStore.members.length }}</strong>
         <span class="intel-caption">registered members</span>
       </article>
       <article class="intel-card">
-        <span class="intel-label">Your clearance</span>
+        <span class="intel-label">Your role</span>
         <strong class="intel-value intel-value--text">{{ campaignStore.myRole ?? 'member' }}</strong>
-        <span class="intel-caption">campaign access level</span>
+        <span class="intel-caption">in this campaign</span>
       </article>
       <article class="intel-card">
-        <span class="intel-label">Invite frequency</span>
+        <span class="intel-label">Invite code</span>
         <strong class="intel-value invite-value">{{ activeCampaign.invite_code }}</strong>
         <span class="intel-caption">share with your party</span>
       </article>
@@ -54,22 +54,22 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
     <section class="mission-section">
       <div class="section-heading">
         <div>
-          <p class="hero-kicker">Mission control</p>
-          <h2>Choose your station</h2>
+          <p class="hero-kicker">Campaign tools</p>
+          <h2>Pick up the story</h2>
         </div>
         <RouterLink to="/campaigns" class="text-link">Manage campaign <span aria-hidden="true">↗</span></RouterLink>
       </div>
       <nav class="station-grid" aria-label="Campaign stations">
         <RouterLink to="/notes" class="station-card station-card--notes">
-          <span class="station-code">LOG / 01</span>
-          <h3>Session archive</h3>
+          <span class="station-code">NOTES / 01</span>
+          <h3>Session notes</h3>
           <p>Record discoveries, NPCs, locations, and the details nobody wants to forget.</p>
           <span class="station-arrow" aria-hidden="true">↗</span>
         </RouterLink>
         <RouterLink to="/healer" class="station-card station-card--health">
-          <span class="station-code">VITALS / 02</span>
-          <h3>Party vitals</h3>
-          <p>Monitor the field. Apply damage, restore HP, and keep the team standing.</p>
+          <span class="station-code">HEALTH / 02</span>
+          <h3>Party health</h3>
+          <p>Track the party, apply damage, restore HP, and keep everyone standing.</p>
           <span class="station-arrow" aria-hidden="true">↗</span>
         </RouterLink>
         <RouterLink to="/characters" class="station-card station-card--characters">
@@ -79,8 +79,8 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
           <span class="station-arrow" aria-hidden="true">↗</span>
         </RouterLink>
         <RouterLink to="/links" class="station-card station-card--links">
-          <span class="station-code">RELAY / 04</span>
-          <h3>Resource relay</h3>
+          <span class="station-code">LINKS / 04</span>
+          <h3>Campaign links</h3>
           <p>Rules, sheets, maps, and every external link your campaign depends on.</p>
           <span class="station-arrow" aria-hidden="true">↗</span>
         </RouterLink>
