@@ -112,13 +112,17 @@ onMounted(loadFromStorage)
 
 <template>
   <main class="links-page">
-    <h1 class="page-title">Useful links</h1>
-    <p class="page-desc">
-      Keep your character sheet, rules, and other in-game links in one place. Opens in a new tab.
-    </p>
+    <header class="page-header">
+      <p class="page-kicker">External tools / campaign relay</p>
+      <h1 class="page-title">Campaign links</h1>
+      <p class="page-desc">
+        Keep character sheets, rules, maps, and every outside resource your table relies on in one place.
+      </p>
+    </header>
 
     <!-- Add new -->
     <section class="add-section">
+      <span class="section-kicker">Add a resource</span>
       <h2 class="section-heading">Add link</h2>
       <div class="add-form">
         <input
@@ -141,6 +145,7 @@ onMounted(loadFromStorage)
 
     <!-- List -->
     <section class="list-section">
+      <span class="section-kicker">Your external toolkit</span>
       <h2 class="section-heading">Your links</h2>
       <div v-if="links.length === 0" class="empty">No links yet. Add your character sheet or other handy links above.</div>
       <ul class="link-list">
@@ -165,6 +170,7 @@ onMounted(loadFromStorage)
             >
               <span class="link-label">{{ link.label }}</span>
               <span class="link-url">{{ link.url }}</span>
+              <span class="link-open" aria-hidden="true">Open ↗</span>
             </a>
             <div class="item-actions">
               <button type="button" class="btn-icon" title="Edit" @click="startEdit(link)">Edit</button>
@@ -179,14 +185,31 @@ onMounted(loadFromStorage)
 
 <style scoped>
 .links-page {
-  padding: 2rem 1rem 3rem;
-  max-width: 640px;
+  padding: 2.5rem 2rem 4rem;
+  max-width: 1080px;
   margin: 0 auto;
 }
 
+.page-header {
+  padding: 0.75rem 0.25rem 2rem;
+}
+
+.page-kicker,
+.section-kicker {
+  color: var(--dnd-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.page-kicker { margin: 0 0 0.45rem; }
+.section-kicker { color: var(--dnd-accent-2); }
+
 .page-title {
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-family: 'Spectral', serif;
+  font-size: clamp(2.1rem, 4vw, 3rem);
+  letter-spacing: -0.03em;
   color: var(--dnd-ink);
   margin: 0 0 0.5rem;
 }
@@ -194,12 +217,13 @@ onMounted(loadFromStorage)
 .page-desc {
   color: var(--dnd-muted);
   font-size: 0.95rem;
-  margin: 0 0 2rem;
+  max-width: 54ch;
+  margin: 0.35rem 0 0;
 }
 
 .section-heading {
-  font-family: 'Cinzel', serif;
-  font-size: 1.1rem;
+  font-family: 'Spectral', serif;
+  font-size: 1.5rem;
   color: var(--dnd-ink);
   margin: 0 0 0.75rem;
 }
@@ -208,9 +232,10 @@ onMounted(loadFromStorage)
   margin-bottom: 2rem;
   padding: 1.25rem;
   background: var(--dnd-paper);
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-top: 3px solid var(--dnd-accent-2);
 }
 
 .add-form {
@@ -254,9 +279,10 @@ onMounted(loadFromStorage)
 .list-section {
   padding: 1.25rem;
   background: var(--dnd-paper);
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-top: 3px solid #637b9b;
 }
 
 .empty {
@@ -270,15 +296,16 @@ onMounted(loadFromStorage)
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.75rem;
 }
 
 .link-item {
   display: flex;
   align-items: stretch;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .link-card {
@@ -286,23 +313,34 @@ onMounted(loadFromStorage)
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 1rem 1.25rem;
-  border-radius: 10px;
+  padding: 1.15rem 1.25rem;
+  border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--dnd-input-bg);
+  position: relative;
   color: inherit;
   text-decoration: none;
   transition: background 0.15s, border-color 0.15s;
 }
 .link-card:hover {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: var(--dnd-accent);
+  background: var(--dnd-paper);
+  border-color: var(--dnd-accent-2);
+  box-shadow: 0 10px 24px rgba(32, 36, 42, 0.1);
 }
 
 .link-label {
+  font-family: 'Spectral', serif;
   font-weight: 700;
   font-size: 1rem;
   color: var(--dnd-ink);
+}
+
+.link-open {
+  align-self: flex-end;
+  color: var(--dnd-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-top: 0.55rem;
 }
 
 .link-url {
@@ -350,6 +388,7 @@ onMounted(loadFromStorage)
 }
 
 @media (max-width: 600px) {
+  .links-page { padding-inline: 1rem; }
   .add-form,
   .edit-form {
     grid-template-columns: 1fr;
