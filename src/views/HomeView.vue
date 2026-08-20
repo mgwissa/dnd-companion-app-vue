@@ -15,6 +15,14 @@ const party = ref<
   { id: string; character_name: string; avatar_url: string; max_hp: number; current_hp: number }[]
 >([])
 const openThreads = ref<{ id: string; title: string; is_done: boolean }[]>([])
+const activityItems = computed(() =>
+  recentNotes.value.slice(0, 5).map((note) => ({
+    id: note.id,
+    label: note.title || 'Untitled note',
+    detail: 'Campaign note updated',
+    date: note.updated_at,
+  })),
+)
 const dashboardLoading = ref(false)
 const latestSession = computed(
   () => recentNotes.value.find((note) => /session/i.test(note.title)) ?? null,
@@ -196,6 +204,24 @@ watch(
           <span class="thread-bullet" aria-hidden="true">+</span>
           <span>{{ thread.title }}</span>
           <span class="thread-arrow" aria-hidden="true">↗</span>
+        </RouterLink>
+      </div>
+    </section>
+
+    <section class="activity-snapshot" aria-labelledby="activity-heading">
+      <div class="panel-heading">
+        <div>
+          <span class="panel-kicker">Recent movement</span>
+          <h2 id="activity-heading">Campaign activity</h2>
+        </div>
+        <RouterLink to="/notes" class="panel-link">Open notes <span aria-hidden="true">↗</span></RouterLink>
+      </div>
+      <div v-if="activityItems.length === 0" class="panel-empty">Your campaign activity will appear here.</div>
+      <div v-else class="activity-list">
+        <RouterLink v-for="item in activityItems" :key="item.id" to="/notes" class="activity-row">
+          <span class="activity-dot" aria-hidden="true"></span>
+          <span class="activity-copy"><strong>{{ item.label }}</strong><span>{{ item.detail }}</span></span>
+          <time>{{ formatUpdatedAt(item.date) }}</time>
         </RouterLink>
       </div>
     </section>
@@ -485,6 +511,62 @@ watch(
 .home-thread:hover {
   background: rgba(184, 134, 53, 0.14);
   color: var(--dnd-accent);
+}
+
+.activity-snapshot {
+  margin-bottom: 3rem;
+  padding: 1.35rem;
+  background: var(--dnd-elevated);
+  border: 1px solid rgba(32, 36, 42, 0.11);
+  border-top: 3px solid #637b9b;
+  border-radius: 9px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid rgba(32, 36, 42, 0.08);
+  color: var(--dnd-ink);
+}
+
+.activity-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #637b9b;
+  box-shadow: 0 0 0 4px rgba(99, 123, 155, 0.13);
+}
+
+.activity-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.activity-copy strong {
+  overflow: hidden;
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-copy span,
+.activity-row time {
+  color: var(--dnd-muted);
+  font-size: 0.72rem;
+}
+
+.activity-row time {
+  white-space: nowrap;
 }
 
 .home-thread > span:nth-child(2) {

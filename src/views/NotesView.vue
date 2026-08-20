@@ -70,6 +70,9 @@ const newShared = ref(false)
 const threads = ref<CampaignThread[]>([])
 const newThreadTitle = ref('')
 const threadsLoading = ref(false)
+const sessionMode = ref(false)
+const quickCaptureType = ref('Discovery')
+const quickCaptureText = ref('')
 
 const isMyNote = (n: Note) => n.userId === auth.user?.id
 
@@ -194,6 +197,7 @@ async function createNote() {
 }
 
 async function startSession() {
+  sessionMode.value = true
   const dateLabel = new Intl.DateTimeFormat(undefined, {
     month: 'numeric',
     day: 'numeric',
@@ -203,6 +207,14 @@ async function startSession() {
   newBody.value = `## Recap\n\n## Discoveries\n\n## NPCs & locations\n\n## Open threads\n\n`
   newShared.value = true
   await createNote()
+}
+
+async function addQuickCapture() {
+  const capture = quickCaptureText.value.trim()
+  if (!capture || !activeId.value) return
+  body.value = `${body.value.trimEnd()}\n\n## ${quickCaptureType.value}\n${capture}\n`
+  quickCaptureText.value = ''
+  await saveActive()
 }
 
 function selectNote(id: string) {
@@ -379,6 +391,7 @@ onMounted(async () => {
   await fetchThreads()
   const requestedNote = typeof route.query.note === 'string' ? route.query.note : null
   if (requestedNote && notes.value.some((note) => note.id === requestedNote)) {
+    sessionMode.value = true
     selectNote(requestedNote)
   } else if (route.query.start === 'session') {
     await startSession()
@@ -459,6 +472,24 @@ const unsaved = computed(() => {
         <RouterLink to="/links" class="context-link">Links</RouterLink>
       </div>
     </nav>
+    <section v-if="sessionMode && activeId" class="session-mode-bar" aria-label="Session mode">
+      <div>
+        <span class="page-kicker">Session mode</span>
+        <strong>Capture the moment. Sort it out later.</strong>
+      </div>
+      <form class="quick-capture" @submit.prevent="addQuickCapture">
+        <select v-model="quickCaptureType" aria-label="Capture type">
+          <option>Discovery</option>
+          <option>NPC</option>
+          <option>Location</option>
+          <option>Decision</option>
+          <option>Open thread</option>
+        </select>
+        <input v-model="quickCaptureText" type="text" placeholder="Quick capture..." aria-label="Quick capture" />
+        <button type="submit" class="btn btn--primary">Add</button>
+      </form>
+      <button type="button" class="session-mode-close" @click="sessionMode = false">Exit</button>
+    </section>
     <header class="page-intro">
       <p class="page-kicker">Campaign memory / shared journal</p>
       <h1 class="page-title">Notes</h1>
@@ -788,6 +819,58 @@ const unsaved = computed(() => {
   border-radius: 8px;
   background: var(--dnd-elevated);
   font-size: 0.78rem;
+}
+
+.session-mode-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(169, 76, 61, 0.3);
+  border-radius: 8px;
+  background: rgba(169, 76, 61, 0.08);
+}
+
+.session-mode-bar .page-kicker {
+  margin: 0 0 0.15rem;
+}
+
+.session-mode-bar strong {
+  display: block;
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 0.95rem;
+}
+
+.quick-capture {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.quick-capture input,
+.quick-capture select {
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(32, 36, 42, 0.14);
+  border-radius: 6px;
+  background: var(--dnd-input-bg);
+  color: var(--dnd-ink);
+  font: inherit;
+}
+
+.quick-capture input {
+  flex: 1;
+}
+
+.session-mode-close {
+  border: 0;
+  background: transparent;
+  color: var(--dnd-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
 }
 
 .context-home {
@@ -1539,6 +1622,13 @@ const unsaved = computed(() => {
   }
   .campaign-context {
     flex-wrap: wrap;
+  }
+  .session-mode-bar {
+    grid-template-columns: 1fr auto;
+  }
+  .quick-capture {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
   .thread-form {
     flex-direction: column;
