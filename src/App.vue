@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { onMounted, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import DndToast from './components/DndToast.vue'
 import { getToastState, showToast } from './composables/useToast'
@@ -15,6 +15,7 @@ const logoUrl = `${import.meta.env.BASE_URL}logo.svg`
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
 const router = useRouter()
+const menuOpen = ref(false)
 
 onMounted(() => {
   if (auth.isAuthenticated) campaignStore.fetchCampaigns()
@@ -95,23 +96,33 @@ async function handleLogout() {
               {{ auth.displayName }}
             </span>
             <ThemeToggle />
+            <button
+              type="button"
+              class="menu-toggle"
+              :aria-expanded="menuOpen"
+              aria-controls="site-navigation"
+              aria-label="Toggle navigation"
+              @click="menuOpen = !menuOpen"
+            >
+              <span></span><span></span><span></span>
+            </button>
           </div>
         </div>
 
-        <nav class="nav">
-          <RouterLink to="/" class="nav-link">Home</RouterLink>
+        <nav id="site-navigation" class="nav" :class="{ 'nav--open': menuOpen }">
+          <RouterLink to="/" class="nav-link" @click="menuOpen = false">Home</RouterLink>
           <template v-if="auth.isAuthenticated">
-            <RouterLink to="/campaigns" class="nav-link">Campaigns</RouterLink>
-            <RouterLink to="/notes" class="nav-link">Notes</RouterLink>
-            <RouterLink to="/links" class="nav-link">Links</RouterLink>
-            <RouterLink to="/characters" class="nav-link">Characters</RouterLink>
-            <RouterLink to="/healer" class="nav-link">Healer's Kit</RouterLink>
-            <button type="button" class="nav-link nav-btn" @click="handleLogout">
+            <RouterLink to="/campaigns" class="nav-link" @click="menuOpen = false">Campaigns</RouterLink>
+            <RouterLink to="/notes" class="nav-link" @click="menuOpen = false">Notes</RouterLink>
+            <RouterLink to="/links" class="nav-link" @click="menuOpen = false">Links</RouterLink>
+            <RouterLink to="/characters" class="nav-link" @click="menuOpen = false">Characters</RouterLink>
+            <RouterLink to="/healer" class="nav-link" @click="menuOpen = false">Healer's Kit</RouterLink>
+            <button type="button" class="nav-link nav-btn" @click="handleLogout(); menuOpen = false">
               Logout
             </button>
           </template>
           <template v-else>
-            <RouterLink to="/login" class="nav-link">Login</RouterLink>
+            <RouterLink to="/login" class="nav-link" @click="menuOpen = false">Login</RouterLink>
           </template>
         </nav>
       </header>
@@ -163,6 +174,25 @@ async function handleLogout() {
   justify-content: flex-end;
   gap: 0.55rem;
   min-width: 0;
+}
+
+.menu-toggle {
+  display: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.menu-toggle span {
+  display: block;
+  height: 2px;
+  margin: 0.22rem 0;
+  border-radius: 2px;
+  background: var(--banner-ink, var(--dnd-paper));
 }
 
 .user-avatar {
@@ -238,5 +268,26 @@ async function handleLogout() {
 
 .brand-text .brand-sub {
   display: block;
+}
+
+@media (max-width: 720px) {
+  .menu-toggle {
+    display: block;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .nav.nav--open {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.5rem 0 0.75rem;
+  }
+
+  .nav.nav--open .nav-link {
+    text-align: left;
+  }
 }
 </style>

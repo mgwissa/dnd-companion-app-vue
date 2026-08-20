@@ -108,18 +108,26 @@ async function handleLeave() {
 
     <template v-else>
       <header class="detail-header">
+        <p class="detail-kicker">Campaign dossier / {{ isOwner ? 'owner view' : 'member view' }}</p>
         <h1 class="campaign-title">{{ campaign.name }}</h1>
+        <p class="detail-subtitle">Your shared table, party roster, and invite access in one place.</p>
         <div class="invite-section">
-          <span class="invite-label">Invite code:</span>
+          <span class="invite-label">Invite code</span>
           <code class="invite-code">{{ campaign.invite_code }}</code>
           <button class="btn btn-sm" @click="copyInviteCode">
-            {{ copied ? 'Copied!' : 'Copy link' }}
+            {{ copied ? 'Copied' : 'Copy invite link' }}
           </button>
         </div>
       </header>
 
       <section class="members-section">
-        <h2 class="section-heading">Members</h2>
+        <div class="section-heading-row">
+          <div>
+            <p class="section-kicker">Party roster</p>
+            <h2 class="section-heading">Members</h2>
+          </div>
+          <span class="member-count">{{ campaignStore.members.length }} {{ campaignStore.members.length === 1 ? 'member' : 'members' }}</span>
+        </div>
         <ul class="members-list">
           <li v-for="m in campaignStore.members" :key="m.id" class="member-row">
             <div class="member-info">
@@ -171,8 +179,8 @@ async function handleLeave() {
 
 <style scoped>
 .detail-page {
-  padding: 3rem 1rem 4rem;
-  max-width: 600px;
+  padding: 2.5rem 2rem 4rem;
+  max-width: 840px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -189,19 +197,40 @@ async function handleLeave() {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 1.5rem;
-  background: var(--dnd-paper);
-  border-radius: 12px;
+  padding: 2rem;
+  background: linear-gradient(125deg, #242a31, #14171c 72%);
+  border-radius: 10px;
+  border: 1px solid rgba(245, 198, 106, 0.28);
+  color: #f8f5ee;
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
 .campaign-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.75rem;
+  font-family: 'Spectral', serif;
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0;
+  letter-spacing: -0.04em;
+}
+
+.detail-kicker,
+.section-kicker {
+  color: #f5c66a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 0.55rem;
+}
+
+.detail-subtitle {
+  color: #b8bec5;
+  font-size: 0.9rem;
+  margin: 0.6rem 0 1.5rem;
 }
 
 .invite-section {
@@ -209,25 +238,31 @@ async function handleLeave() {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .invite-label {
   font-size: 0.85rem;
-  color: var(--dnd-muted);
+  color: #b8bec5;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .invite-code {
   font-family: ui-monospace, monospace;
   font-size: 0.95rem;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.09);
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
-  color: var(--dnd-ink);
+  color: #f8f5ee;
 }
 
 .section-heading {
-  font-family: 'Cinzel', serif;
-  font-size: 1.1rem;
+  font-family: 'Spectral', serif;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0 0 0.75rem;
@@ -235,10 +270,34 @@ async function handleLeave() {
 
 .members-section {
   padding: 1.5rem;
-  background: var(--dnd-paper);
-  border-radius: 12px;
+  background: var(--dnd-elevated);
+  border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-top: 3px solid #637b9b;
+}
+
+.section-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section-kicker {
+  color: var(--dnd-accent);
+  margin-bottom: 0.2rem;
+}
+
+.section-heading-row .section-heading { margin: 0; }
+
+.member-count {
+  color: var(--dnd-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .members-list {
@@ -255,9 +314,10 @@ async function handleLeave() {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem;
+  padding: 0.9rem;
   border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(32, 36, 42, 0.1);
+  background: var(--dnd-input-bg);
 }
 
 .member-info {
@@ -268,7 +328,8 @@ async function handleLeave() {
 
 .member-name {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-family: 'Spectral', serif;
+  font-size: 1.05rem;
   color: var(--dnd-ink);
   display: flex;
   align-items: center;
@@ -360,5 +421,25 @@ async function handleLeave() {
 .btn-icon.danger:hover {
   background: rgba(179, 58, 42, 0.12);
   color: #b33a2a;
+}
+
+@media (max-width: 600px) {
+  .detail-page {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .detail-header,
+  .members-section {
+    padding: 1.25rem;
+  }
+
+  .section-heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .member-row {
+    align-items: flex-start;
+  }
 }
 </style>
