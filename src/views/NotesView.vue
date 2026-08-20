@@ -119,6 +119,18 @@ async function createNote() {
   }
 }
 
+async function startSession() {
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date())
+  newTitle.value = `${dateLabel} Session`
+  newBody.value = `## Recap\n\n## Discoveries\n\n## NPCs & locations\n\n## Open threads\n\n`
+  newShared.value = true
+  await createNote()
+}
+
 function selectNote(id: string) {
   const n = notes.value.find((x) => x.id === id)
   if (!n) return
@@ -459,6 +471,9 @@ const unsaved = computed(() => {
           <h2 class="editor-heading">New note</h2>
           <div class="editor-toolbar">
             <div class="editor-actions">
+              <button type="button" class="btn btn--primary" @click="startSession">
+                Start session
+              </button>
               <button type="button" class="btn btn--secondary" @click="exportNotes">
                 Export
               </button>
