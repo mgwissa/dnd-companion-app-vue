@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { showToast, clearToastTimer } from '@/composables/useToast'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
@@ -41,6 +42,7 @@ function dbToNote(row: DbNote): Note {
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
+const route = useRoute()
 
 const notes = ref<Note[]>([])
 const activeId = ref<string | null>(null)
@@ -296,8 +298,14 @@ function formatDate(ms: number): string {
   })
 }
 
-onMounted(() => {
-  fetchNotes()
+onMounted(async () => {
+  await fetchNotes()
+  const requestedNote = typeof route.query.note === 'string' ? route.query.note : null
+  if (requestedNote && notes.value.some((note) => note.id === requestedNote)) {
+    selectNote(requestedNote)
+  } else if (route.query.start === 'session') {
+    await startSession()
+  }
   const handler = (e: KeyboardEvent) => {
     const isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.code === 'KeyS')
     if (isSave) {

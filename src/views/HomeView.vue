@@ -15,6 +15,9 @@ const party = ref<
   { id: string; character_name: string; avatar_url: string; max_hp: number; current_hp: number }[]
 >([])
 const dashboardLoading = ref(false)
+const latestSession = computed(
+  () => recentNotes.value.find((note) => /session/i.test(note.title)) ?? null,
+)
 
 function hpPercent(character: (typeof party.value)[number]) {
   if (!character.max_hp) return 0
@@ -108,6 +111,16 @@ watch(
             <h2>Campaign log</h2>
           </div>
           <RouterLink to="/notes" class="panel-link">View all <span aria-hidden="true">↗</span></RouterLink>
+        </div>
+        <div v-if="latestSession" class="session-continue">
+          <span class="session-continue-label">Latest session</span>
+          <strong>{{ latestSession.title }}</strong>
+          <div class="session-actions">
+            <RouterLink :to="{ path: '/notes', query: { note: latestSession.id } }" class="session-action session-action--primary">
+              Continue session
+            </RouterLink>
+            <RouterLink to="/notes?start=session" class="session-action">Start new</RouterLink>
+          </div>
         </div>
         <div v-if="dashboardLoading" class="panel-empty">Loading campaign notes...</div>
         <div v-else-if="recentNotes.length === 0" class="panel-empty">
@@ -445,6 +458,50 @@ watch(
   padding: 1.25rem 0 0.5rem;
   color: var(--dnd-muted);
   font-size: 0.84rem;
+}
+
+.session-continue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+  padding: 0.75rem;
+  border-radius: 7px;
+  background: rgba(169, 76, 61, 0.08);
+}
+
+.session-continue-label {
+  color: var(--dnd-accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.session-continue strong {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 1.05rem;
+}
+
+.session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.session-action {
+  color: var(--dnd-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.session-action--primary {
+  padding: 0.35rem 0.55rem;
+  border-radius: 5px;
+  background: var(--dnd-accent);
+  color: var(--dnd-on-accent);
 }
 
 .note-row {
