@@ -13,7 +13,10 @@ const route = useRoute()
 const router = useRouter()
 
 const activeCampaign = computed(() => campaignStore.activeCampaign)
+const isDm = computed(() => campaignStore.myRole === 'owner')
+const hubView = ref<'party' | 'dm'>('party')
 const recentNotes = ref<{ id: string; title: string; body: string; updated_at: string }[]>([])
+const privateNotes = ref<{ id: string; title: string; body: string; updated_at: string }[]>([])
 const party = ref<
   { id: string; character_name: string; avatar_url: string; max_hp: number; current_hp: number }[]
 >([])
@@ -82,6 +85,19 @@ async function loadCommandCenter() {
     recentNotes.value = notesResult.data ?? []
     party.value = partyResult.data ?? []
     openThreads.value = threadsResult.data ?? []
+    if (isDm.value) {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('id, title, body, updated_at')
+        .eq('campaign_id', campaignId)
+        .eq('is_shared', false)
+        .order('updated_at', { ascending: false })
+        .limit(5)
+      if (error) throw error
+      privateNotes.value = data ?? []
+    } else {
+      privateNotes.value = []
+    }
   } catch (error) {
     console.warn('Failed to load campaign snapshot', error)
   } finally {
@@ -183,6 +199,44 @@ watch(
       <div class="campaign-signal">
         <span class="signal-dot" aria-hidden="true"></span>
         <span>Campaign active</span>
+      </div>
+    </section>
+
+    <div v-if="isDm" class="hub-view-switch" role="tablist" aria-label="Campaign hub view">
+      <button type="button" :class="{ 'hub-view-switch--active': hubView === 'party' }" @click="hubView = 'party'">
+        Party hub
+      </button>
+      <button type="button" :class="{ 'hub-view-switch--active': hubView === 'dm' }" @click="hubView = 'dm'">
+        DM hub
+      </button>
+    </div>
+
+    <section v-if="isDm && hubView === 'dm'" class="dm-hub" aria-label="DM hub">
+      <div class="dm-hub-header">
+        <div>
+          <p class="hero-kicker">Private campaign layer</p>
+          <h2>DM hub</h2>
+          <p>Prepare the next move without putting the surprise on the table.</p>
+        </div>
+        <RouterLink to="/notes" class="session-action session-action--primary">Open private notes</RouterLink>
+      </div>
+      <div class="dm-grid">
+        <article class="dm-card dm-card--prep">
+          <span class="dm-card-kicker">Preparation desk</span>
+          <h3>What needs attention?</h3>
+          <p>Keep private encounter plans, reveals, and reminders close while the party works through the story.</p>
+          <RouterLink to="/notes" class="dm-card-link">Write a DM note ↗</RouterLink>
+        </article>
+        <article class="dm-card">
+          <span class="dm-card-kicker">Private notes</span>
+          <strong class="dm-note-count">{{ privateNotes.length }}</strong>
+          <span class="dm-card-caption">recent DM-only notes</span>
+          <div v-if="privateNotes.length" class="dm-note-list">
+            <RouterLink v-for="note in privateNotes.slice(0, 3)" :key="note.id" :to="{ path: '/notes', query: { note: note.id } }">
+              {{ note.title || 'Untitled note' }}
+            </RouterLink>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -468,6 +522,142 @@ watch(
   transform: rotate(45deg);
 }
 
+.hub-view-switch {
+  display: inline-flex;
+  gap: 0.2rem;
+  margin: 0.75rem 0;
+  padding: 0.2rem;
+  border: 1px solid rgba(32, 36, 42, 0.12);
+  border-radius: 7px;
+  background: var(--dnd-elevated);
+}
+
+.hub-view-switch button {
+  padding: 0.45rem 0.75rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dnd-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.hub-view-switch button:hover,
+.hub-view-switch--active {
+  background: var(--dnd-ink);
+  color: var(--dnd-paper);
+}
+
+.dm-hub {
+  margin-bottom: 1.5rem;
+  padding: 1.35rem;
+  border: 1px solid rgba(184, 134, 53, 0.35);
+  border-top: 3px solid var(--dnd-accent-2);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(184, 134, 53, 0.11), var(--dnd-elevated));
+}
+
+.dm-hub-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.dm-hub-header .hero-kicker {
+  margin-bottom: 0.25rem;
+}
+
+.dm-hub-header h2 {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 2rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.dm-hub-header p:last-child {
+  color: var(--dnd-muted);
+  font-size: 0.82rem;
+  margin: 0.4rem 0 0;
+}
+
+.dm-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 0.75rem;
+}
+
+.dm-card {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(32, 36, 42, 0.1);
+  border-radius: 7px;
+  background: var(--dnd-input-bg);
+}
+
+.dm-card--prep {
+  background: rgba(169, 76, 61, 0.08);
+}
+
+.dm-card-kicker {
+  color: var(--dnd-accent);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.dm-card h3 {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 1.35rem;
+  margin: 0.45rem 0;
+}
+
+.dm-card p,
+.dm-card-caption {
+  color: var(--dnd-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.dm-card-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--dnd-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dm-note-count {
+  display: block;
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 2rem;
+  line-height: 1;
+  margin-top: 0.45rem;
+}
+
+.dm-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.8rem;
+}
+
+.dm-note-list a {
+  overflow: hidden;
+  color: var(--dnd-accent);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hub-session-panel {
   margin-top: 0.75rem;
   padding: 1.25rem;
@@ -545,6 +735,15 @@ watch(
   .hub-capture-form {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .dm-hub-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dm-grid {
+    grid-template-columns: 1fr;
   }
 }
 
