@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { computed, onMounted, watch } from 'vue'
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
@@ -9,6 +9,7 @@ import { useCampaignStore } from '@/stores/campaign'
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
 const route = useRoute()
+const router = useRouter()
 
 const activeCampaign = computed(() => campaignStore.activeCampaign)
 const recentNotes = ref<{ id: string; title: string; body: string; updated_at: string }[]>([])
@@ -114,6 +115,16 @@ async function openSessionMode(noteId?: string) {
   sessionMode.value = Boolean(sessionNote.value)
 }
 
+async function continueSession(noteId: string) {
+  await router.replace({ path: '/', query: { session: noteId } })
+  await openSessionMode(noteId)
+}
+
+async function startNewSession() {
+  await router.replace({ path: '/', query: { session: 'new' } })
+  await openSessionMode()
+}
+
 async function addSessionCapture() {
   if (!sessionNote.value || !captureText.value.trim()) return
   const body = `${sessionNote.value.body.trimEnd()}\n\n## ${captureType.value}\n${captureText.value.trim()}\n`
@@ -214,10 +225,10 @@ watch(
           <span class="session-continue-label">Latest session</span>
           <strong>{{ latestSession.title }}</strong>
           <div class="session-actions">
-            <RouterLink :to="{ path: '/', query: { session: latestSession.id } }" class="session-action session-action--primary">
+            <button type="button" class="session-action session-action--primary" @click="continueSession(latestSession.id)">
               Continue session
-            </RouterLink>
-            <RouterLink to="/?session=new" class="session-action">Start new</RouterLink>
+            </button>
+            <button type="button" class="session-action session-action--button" @click="startNewSession">Start new</button>
           </div>
         </div>
         <div v-if="dashboardLoading" class="panel-empty">Loading campaign notes...</div>
@@ -796,6 +807,14 @@ watch(
   color: var(--dnd-accent);
   font-size: 0.72rem;
   font-weight: 700;
+}
+
+.session-action--button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .session-action--primary {
