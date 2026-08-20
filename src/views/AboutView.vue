@@ -215,8 +215,9 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 <template>
   <main class="chars-page">
     <header class="page-header">
+      <p class="page-kicker">Campaign roster / character sheets</p>
       <h1 class="page-title">Characters</h1>
-      <p class="page-sub">Campaign: {{ campaignName }}</p>
+      <p class="page-sub">{{ campaignName }} · Keep every adventurer within reach.</p>
     </header>
 
     <!-- Create/Edit form -->
@@ -310,7 +311,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
               rel="noopener noreferrer"
               class="char-link"
             >
-              Character sheet →
+              Open character sheet ↗
             </a>
           </div>
 
@@ -327,18 +328,26 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 
 <style scoped>
 .chars-page {
-  padding: 3rem 1rem 4rem;
-  max-width: 700px;
+  padding: 2.5rem 2rem 4rem;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-.page-header { text-align: center; }
+.page-header { padding: 0.75rem 0.25rem 0; }
+.page-kicker {
+  color: var(--dnd-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 0.45rem;
+}
 .page-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.75rem;
+  font-family: 'Spectral', serif;
+  font-size: clamp(2.1rem, 4vw, 3rem);
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0;
@@ -355,12 +364,13 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,0.06);
   box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+  border-top: 3px solid var(--dnd-accent-2);
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 .form-heading {
-  font-family: 'Cinzel', serif;
+  font-family: 'Spectral', serif;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--dnd-ink);
@@ -431,21 +441,31 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 
 .chars-list {
   list-style: none; margin: 0; padding: 0;
-  display: flex; flex-direction: column; gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.85rem;
 }
 
 .char-card {
   padding: 1.25rem;
   background: var(--dnd-paper);
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.06);
   box-shadow: 0 4px 16px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  border-top: 3px solid transparent;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.char-card:hover {
+  transform: translateY(-3px);
+  border-top-color: var(--dnd-accent-2);
+  box-shadow: 0 12px 26px rgba(32, 36, 42, 0.12);
 }
 .char-card--active {
   border-color: var(--dnd-accent);
+  border-top-color: var(--dnd-accent);
   box-shadow: 0 0 0 2px rgba(139,58,47,0.12), 0 4px 16px rgba(0,0,0,0.06);
 }
 
@@ -464,7 +484,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 .char-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .char-info { display: flex; flex-direction: column; gap: 0.15rem; }
 .char-name {
-  font-family: 'Cinzel', serif;
+  font-family: 'Spectral', serif;
   font-weight: 700; font-size: 1.1rem;
   color: var(--dnd-ink);
 }
@@ -493,6 +513,11 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
   font-size: 0.88rem; text-decoration: none;
 }
 .char-link:hover { text-decoration: underline; }
+.char-link:last-child {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(169, 76, 61, 0.1);
+}
 
 .char-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 
@@ -528,6 +553,7 @@ const displayAvatar = computed(() => avatarPreview.value || avatarUrl.value)
 .btn-danger-sm:hover { background: rgba(179,58,42,0.1); color: #b33a2a; }
 
 @media (max-width: 500px) {
+  .chars-page { padding-inline: 1rem; }
   .avatar-edit { flex-direction: column; }
 }
 </style>
