@@ -483,6 +483,28 @@ watch(
   margin: 0.35rem 0 0;
 }
 
+.session-mode-close {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(169, 76, 61, 0.35);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dnd-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.session-mode-close:hover {
+  border-color: var(--dnd-accent);
+  color: var(--dnd-accent);
+  background: rgba(169, 76, 61, 0.08);
+}
+
+.session-mode-close:focus-visible {
+  outline: 2px solid var(--dnd-accent-2);
+  outline-offset: 2px;
+}
+
 .hub-capture-form {
   display: flex;
   align-items: center;
