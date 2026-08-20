@@ -5,6 +5,7 @@ import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
+import { showToast } from '@/composables/useToast'
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
@@ -127,14 +128,28 @@ async function startNewSession() {
 
 async function addSessionCapture() {
   if (!sessionNote.value || !captureText.value.trim()) return
-  const body = `${sessionNote.value.body.trimEnd()}\n\n## ${captureType.value}\n${captureText.value.trim()}\n`
+  const capture = captureText.value.trim()
+  const body = `${sessionNote.value.body.trimEnd()}\n\n## ${captureType.value}\n${capture}\n`
   const { error } = await supabase
     .from('notes')
     .update({ body, updated_at: new Date().toISOString() })
     .eq('id', sessionNote.value.id)
   if (error) return
+
+  if (captureType.value === 'Open thread' && activeCampaign.value && auth.user) {
+    const { error: threadError } = await supabase.from('campaign_threads').insert({
+      campaign_id: activeCampaign.value.id,
+      created_by: auth.user.id,
+      title: capture,
+    })
+    if (threadError) {
+      showToast('Saved to notes, but could not add the open thread.', 'error')
+    }
+  }
+
   sessionNote.value.body = body
   captureText.value = ''
+  showToast(`${captureType.value} captured`, 'success')
   await loadCommandCenter()
 }
 
