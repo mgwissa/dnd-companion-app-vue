@@ -62,7 +62,10 @@ async function loadCommandCenter() {
 }
 
 onMounted(loadCommandCenter)
-watch(() => campaignStore.activeCampaignId, loadCommandCenter)
+watch(
+  [() => campaignStore.activeCampaignId, () => campaignStore.campaigns.length],
+  loadCommandCenter,
+)
 </script>
 
 <template>
