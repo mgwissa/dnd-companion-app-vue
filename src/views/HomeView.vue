@@ -1,14 +1,94 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import { computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
+
+const activeCampaign = computed(() => campaignStore.activeCampaign)
+
+async function loadCommandCenter() {
+  if (activeCampaign.value) {
+    await campaignStore.fetchMembers(activeCampaign.value.id)
+  }
+}
+
+onMounted(loadCommandCenter)
+watch(() => campaignStore.activeCampaignId, loadCommandCenter)
 </script>
 
 <template>
-  <main class="home">
+  <main v-if="auth.isAuthenticated && activeCampaign" class="command-center">
+    <section class="command-hero">
+      <div>
+        <p class="hero-kicker">Command center / active campaign</p>
+        <h1 class="command-title">{{ activeCampaign.name }}</h1>
+        <p class="command-subtitle">The table is ready. Make your next move count.</p>
+      </div>
+      <div class="campaign-signal">
+        <span class="signal-dot" aria-hidden="true"></span>
+        <span>Campaign online</span>
+      </div>
+    </section>
+
+    <section class="intel-grid" aria-label="Campaign intelligence">
+      <article class="intel-card intel-card--primary">
+        <span class="intel-label">Party roster</span>
+        <strong class="intel-value">{{ campaignStore.members.length }}</strong>
+        <span class="intel-caption">registered members</span>
+      </article>
+      <article class="intel-card">
+        <span class="intel-label">Your clearance</span>
+        <strong class="intel-value intel-value--text">{{ campaignStore.myRole ?? 'member' }}</strong>
+        <span class="intel-caption">campaign access level</span>
+      </article>
+      <article class="intel-card">
+        <span class="intel-label">Invite frequency</span>
+        <strong class="intel-value invite-value">{{ activeCampaign.invite_code }}</strong>
+        <span class="intel-caption">share with your party</span>
+      </article>
+    </section>
+
+    <section class="mission-section">
+      <div class="section-heading">
+        <div>
+          <p class="hero-kicker">Mission control</p>
+          <h2>Choose your station</h2>
+        </div>
+        <RouterLink to="/campaigns" class="text-link">Manage campaign <span aria-hidden="true">↗</span></RouterLink>
+      </div>
+      <nav class="station-grid" aria-label="Campaign stations">
+        <RouterLink to="/notes" class="station-card station-card--notes">
+          <span class="station-code">LOG / 01</span>
+          <h3>Session archive</h3>
+          <p>Record discoveries, NPCs, locations, and the details nobody wants to forget.</p>
+          <span class="station-arrow" aria-hidden="true">↗</span>
+        </RouterLink>
+        <RouterLink to="/healer" class="station-card station-card--health">
+          <span class="station-code">VITALS / 02</span>
+          <h3>Party vitals</h3>
+          <p>Monitor the field. Apply damage, restore HP, and keep the team standing.</p>
+          <span class="station-arrow" aria-hidden="true">↗</span>
+        </RouterLink>
+        <RouterLink to="/characters" class="station-card station-card--characters">
+          <span class="station-code">ROSTER / 03</span>
+          <h3>Character roster</h3>
+          <p>Know who is at the table and keep every sheet within reach.</p>
+          <span class="station-arrow" aria-hidden="true">↗</span>
+        </RouterLink>
+        <RouterLink to="/links" class="station-card station-card--links">
+          <span class="station-code">RELAY / 04</span>
+          <h3>Resource relay</h3>
+          <p>Rules, sheets, maps, and every external link your campaign depends on.</p>
+          <span class="station-arrow" aria-hidden="true">↗</span>
+        </RouterLink>
+      </nav>
+    </section>
+  </main>
+
+  <main v-else class="home">
     <header class="hero">
       <p class="hero-kicker">The party's field journal</p>
       <h1 class="hero-title">Everything your campaign needs.<br /><em>Nothing it doesn't.</em></h1>
@@ -75,6 +155,218 @@ const campaignStore = useCampaignStore()
 </template>
 
 <style scoped>
+.command-center {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem 4rem;
+}
+
+.command-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 2rem;
+  padding: 2.25rem;
+  color: #f8f5ee;
+  background: linear-gradient(125deg, #242a31, #14171c 72%);
+  border: 1px solid rgba(245, 198, 106, 0.28);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(22, 25, 30, 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.command-hero::after {
+  content: '';
+  position: absolute;
+  width: 17rem;
+  height: 17rem;
+  right: -6rem;
+  top: -8rem;
+  border: 1px solid rgba(245, 198, 106, 0.18);
+  transform: rotate(45deg);
+}
+
+.command-hero .hero-kicker {
+  color: #f5c66a;
+  margin-bottom: 0.7rem;
+}
+
+.command-title {
+  font-family: 'Spectral', serif;
+  font-size: clamp(2.2rem, 6vw, 4.2rem);
+  line-height: 1;
+  margin: 0;
+  letter-spacing: -0.04em;
+}
+
+.command-subtitle {
+  color: #b8bec5;
+  margin: 0.8rem 0 0;
+  font-size: 0.95rem;
+}
+
+.campaign-signal {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #b8bec5;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.signal-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #6dcc89;
+  box-shadow: 0 0 0 5px rgba(109, 204, 137, 0.14), 0 0 16px rgba(109, 204, 137, 0.7);
+}
+
+.intel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin: 0.75rem 0 3rem;
+}
+
+.intel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1.2rem 1.25rem;
+  background: var(--dnd-elevated);
+  border: 1px solid rgba(32, 36, 42, 0.11);
+  border-radius: 9px;
+}
+
+.intel-card--primary {
+  border-top: 3px solid var(--dnd-accent);
+}
+
+.intel-label,
+.station-code {
+  color: var(--dnd-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.intel-value {
+  font-family: 'Spectral', serif;
+  font-size: 2.1rem;
+  line-height: 1;
+  color: var(--dnd-ink);
+  margin-top: 0.45rem;
+}
+
+.intel-value--text {
+  text-transform: capitalize;
+  font-size: 1.55rem;
+}
+
+.invite-value {
+  font-family: ui-monospace, monospace;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+}
+
+.intel-caption {
+  color: var(--dnd-muted);
+  font-size: 0.78rem;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section-heading .hero-kicker {
+  margin-bottom: 0.25rem;
+}
+
+.section-heading h2 {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 1.8rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.text-link {
+  color: var(--dnd-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.station-card {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  border-radius: 9px;
+  border: 1px solid rgba(32, 36, 42, 0.1);
+  color: var(--dnd-ink);
+  background: var(--dnd-elevated);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.station-card::before {
+  content: '';
+  height: 4px;
+  position: absolute;
+  inset: 0 0 auto;
+  background: var(--station-color, var(--dnd-accent));
+}
+
+.station-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--station-color, var(--dnd-accent));
+  box-shadow: 0 14px 26px rgba(32, 36, 42, 0.12);
+}
+
+.station-card h3 {
+  font-family: 'Spectral', serif;
+  font-size: 1.45rem;
+  margin: 2rem 0 0.55rem;
+}
+
+.station-card p {
+  color: var(--dnd-muted);
+  font-size: 0.83rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.station-arrow {
+  color: var(--station-color, var(--dnd-accent));
+  font-size: 1.3rem;
+  margin-top: auto;
+  align-self: flex-end;
+}
+
+.station-card--notes { --station-color: #a94c3d; }
+.station-card--health { --station-color: #4e8b70; }
+.station-card--characters { --station-color: #b88635; }
+.station-card--links { --station-color: #637b9b; }
+
 .home {
   min-height: 70vh;
   display: flex;
@@ -235,6 +527,21 @@ const campaignStore = useCampaignStore()
 }
 
 @media (max-width: 620px) {
+  .command-center {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .command-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 1.5rem;
+  }
+
+  .intel-grid,
+  .station-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .home {
     padding: 3rem 1rem 3rem;
   }
@@ -244,6 +551,13 @@ const campaignStore = useCampaignStore()
   }
 
   .actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .intel-grid,
+  .station-grid {
     grid-template-columns: 1fr;
   }
 }
