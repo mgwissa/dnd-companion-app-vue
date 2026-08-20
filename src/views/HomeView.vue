@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { computed, onMounted, watch } from 'vue'
+import { ref } from 'vue'
+import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
 
@@ -8,10 +10,54 @@ const auth = useAuthStore()
 const campaignStore = useCampaignStore()
 
 const activeCampaign = computed(() => campaignStore.activeCampaign)
+const recentNotes = ref<{ id: string; title: string; body: string; updated_at: string }[]>([])
+const party = ref<
+  { id: string; character_name: string; avatar_url: string; max_hp: number; current_hp: number }[]
+>([])
+const dashboardLoading = ref(false)
+
+function hpPercent(character: (typeof party.value)[number]) {
+  if (!character.max_hp) return 0
+  return Math.max(0, Math.min(100, (character.current_hp / character.max_hp) * 100))
+}
+
+function formatUpdatedAt(value: string) {
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
+    new Date(value),
+  )
+}
 
 async function loadCommandCenter() {
-  if (activeCampaign.value) {
-    await campaignStore.fetchMembers(activeCampaign.value.id)
+  if (!activeCampaign.value) return
+  dashboardLoading.value = true
+  try {
+    const campaignId = activeCampaign.value.id
+    const [membersResult, notesResult, partyResult] = await Promise.all([
+      campaignStore.fetchMembers(campaignId),
+      supabase
+        .from('notes')
+        .select('id, title, body, updated_at')
+        .eq('campaign_id', campaignId)
+        .order('updated_at', { ascending: false })
+        .limit(4),
+      supabase
+        .from('characters')
+        .select('id, character_name, avatar_url, max_hp, current_hp')
+        .eq('campaign_id', campaignId)
+        .eq('is_active', true)
+        .eq('is_npc', false)
+        .order('character_name')
+        .limit(6),
+    ])
+    void membersResult
+    if (notesResult.error) throw notesResult.error
+    if (partyResult.error) throw partyResult.error
+    recentNotes.value = notesResult.data ?? []
+    party.value = partyResult.data ?? []
+  } catch (error) {
+    console.warn('Failed to load campaign snapshot', error)
+  } finally {
+    dashboardLoading.value = false
   }
 }
 
@@ -48,6 +94,62 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
         <span class="intel-label">Invite code</span>
         <strong class="intel-value invite-value">{{ activeCampaign.invite_code }}</strong>
         <span class="intel-caption">share with your party</span>
+      </article>
+    </section>
+
+    <section class="snapshot-grid" aria-label="Campaign snapshot">
+      <article class="snapshot-panel snapshot-panel--notes">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-kicker">Latest notes</span>
+            <h2>Campaign log</h2>
+          </div>
+          <RouterLink to="/notes" class="panel-link">View all <span aria-hidden="true">↗</span></RouterLink>
+        </div>
+        <div v-if="dashboardLoading" class="panel-empty">Loading campaign notes...</div>
+        <div v-else-if="recentNotes.length === 0" class="panel-empty">
+          No notes yet. Start the campaign log.
+        </div>
+        <RouterLink
+          v-for="note in recentNotes"
+          :key="note.id"
+          to="/notes"
+          class="note-row"
+        >
+          <span class="note-mark" aria-hidden="true">✦</span>
+          <span class="note-copy">
+            <strong>{{ note.title || 'Untitled note' }}</strong>
+            <span>{{ note.body?.trim() || 'No details added yet.' }}</span>
+          </span>
+          <time>{{ formatUpdatedAt(note.updated_at) }}</time>
+        </RouterLink>
+      </article>
+
+      <article class="snapshot-panel snapshot-panel--party">
+        <div class="panel-heading">
+          <div>
+            <span class="panel-kicker">Active characters</span>
+            <h2>At the table</h2>
+          </div>
+          <RouterLink to="/healer" class="panel-link">Open health <span aria-hidden="true">↗</span></RouterLink>
+        </div>
+        <div v-if="dashboardLoading" class="panel-empty">Loading party...</div>
+        <div v-else-if="party.length === 0" class="panel-empty">
+          No active characters yet. Add the party to the roster.
+        </div>
+        <div v-else class="party-list">
+          <div v-for="character in party" :key="character.id" class="party-row">
+            <div class="avatar" :class="{ 'avatar--empty': !character.avatar_url }">
+              <img v-if="character.avatar_url" :src="character.avatar_url" :alt="`${character.character_name} avatar`" />
+              <span v-else aria-hidden="true">{{ character.character_name.charAt(0) }}</span>
+            </div>
+            <strong>{{ character.character_name }}</strong>
+            <div class="hp-track" aria-hidden="true">
+              <span :style="{ width: `${hpPercent(character)}%` }"></span>
+            </div>
+            <span class="hp-value">{{ character.current_hp }}/{{ character.max_hp || '?' }}</span>
+          </div>
+        </div>
       </article>
     </section>
 
@@ -280,6 +382,165 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
 .intel-caption {
   color: var(--dnd-muted);
   font-size: 0.78rem;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 0.75rem;
+  margin-bottom: 3rem;
+}
+
+.snapshot-panel {
+  min-width: 0;
+  padding: 1.35rem;
+  background: var(--dnd-elevated);
+  border: 1px solid rgba(32, 36, 42, 0.11);
+  border-radius: 9px;
+}
+
+.snapshot-panel--notes {
+  border-top: 3px solid var(--dnd-accent);
+}
+
+.snapshot-panel--party {
+  border-top: 3px solid #4e8b70;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel-kicker {
+  color: var(--dnd-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.panel-heading h2 {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 1.5rem;
+  line-height: 1;
+  margin: 0.25rem 0 0;
+}
+
+.panel-link {
+  flex-shrink: 0;
+  color: var(--dnd-accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.panel-empty {
+  padding: 1.25rem 0 0.5rem;
+  color: var(--dnd-muted);
+  font-size: 0.84rem;
+}
+
+.note-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.72rem 0;
+  color: var(--dnd-ink);
+  border-top: 1px solid rgba(32, 36, 42, 0.08);
+}
+
+.note-mark {
+  color: var(--dnd-accent-2);
+  font-size: 0.9rem;
+}
+
+.note-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.note-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+
+.note-copy span {
+  overflow: hidden;
+  color: var(--dnd-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-row time {
+  color: var(--dnd-muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.party-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.party-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(5rem, 0.8fr) 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.62rem 0;
+  border-top: 1px solid rgba(32, 36, 42, 0.08);
+  font-size: 0.82rem;
+}
+
+.avatar {
+  width: 2rem;
+  height: 2rem;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #d7e1db;
+  color: #37694f;
+  font-family: 'Spectral', serif;
+  font-weight: 700;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hp-track {
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(78, 139, 112, 0.15);
+}
+
+.hp-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #4e8b70;
+  transition: width 0.3s ease;
+}
+
+.hp-value {
+  color: var(--dnd-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .section-heading {
@@ -538,8 +799,13 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
   }
 
   .intel-grid,
+  .snapshot-grid,
   .station-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .snapshot-grid {
+    grid-template-columns: 1fr;
   }
 
   .home {
@@ -557,6 +823,7 @@ watch(() => campaignStore.activeCampaignId, loadCommandCenter)
 
 @media (max-width: 420px) {
   .intel-grid,
+  .snapshot-grid,
   .station-grid {
     grid-template-columns: 1fr;
   }
