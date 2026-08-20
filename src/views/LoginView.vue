@@ -63,7 +63,7 @@ async function handleSubmit() {
     errorMsg.value = 'Email and password are required.'
     return
   }
-  if (!isLogin.value && p.length < 6) {
+  if (!isLogin.value && !isForgot.value && p.length < 6) {
     errorMsg.value = 'Password must be at least 6 characters.'
     return
   }
