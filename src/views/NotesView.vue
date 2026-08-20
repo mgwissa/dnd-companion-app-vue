@@ -28,6 +28,13 @@ interface DbNote {
   created_at: string
 }
 
+type CampaignThread = {
+  id: string
+  title: string
+  is_done: boolean
+  created_by: string
+}
+
 function dbToNote(row: DbNote): Note {
   return {
     id: row.id,
@@ -60,6 +67,9 @@ const newTagInput = ref('')
 const newTitle = ref('')
 const newBody = ref('')
 const newShared = ref(false)
+const threads = ref<CampaignThread[]>([])
+const newThreadTitle = ref('')
+const threadsLoading = ref(false)
 
 const isMyNote = (n: Note) => n.userId === auth.user?.id
 
@@ -82,9 +92,71 @@ async function fetchNotes() {
   }
 }
 
+async function fetchThreads() {
+  if (!campaignStore.activeCampaignId) return
+  threadsLoading.value = true
+  try {
+    const { data, error } = await supabase
+      .from('campaign_threads')
+      .select('id, title, is_done, created_by')
+      .eq('campaign_id', campaignStore.activeCampaignId)
+      .order('is_done', { ascending: true })
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    threads.value = (data ?? []) as CampaignThread[]
+  } catch (error) {
+    console.warn('Failed to load campaign threads', error)
+  } finally {
+    threadsLoading.value = false
+  }
+}
+
+async function addThread() {
+  const titleValue = newThreadTitle.value.trim()
+  if (!titleValue || !campaignStore.activeCampaignId || !auth.user) return
+  const { data, error } = await supabase
+    .from('campaign_threads')
+    .insert({
+      campaign_id: campaignStore.activeCampaignId,
+      created_by: auth.user.id,
+      title: titleValue,
+    })
+    .select('id, title, is_done, created_by')
+    .single()
+  if (error) {
+    showToast('Failed to add thread. Apply the latest database migration first.', 'error')
+    return
+  }
+  threads.value.unshift(data as CampaignThread)
+  newThreadTitle.value = ''
+}
+
+async function toggleThread(thread: CampaignThread) {
+  const { error } = await supabase
+    .from('campaign_threads')
+    .update({ is_done: !thread.is_done, updated_at: new Date().toISOString() })
+    .eq('id', thread.id)
+  if (error) {
+    showToast('Failed to update thread', 'error')
+    return
+  }
+  thread.is_done = !thread.is_done
+  threads.value.sort((a, b) => Number(a.is_done) - Number(b.is_done))
+}
+
+async function deleteThread(thread: CampaignThread) {
+  const { error } = await supabase.from('campaign_threads').delete().eq('id', thread.id)
+  if (error) {
+    showToast('Failed to remove thread', 'error')
+    return
+  }
+  threads.value = threads.value.filter((item) => item.id !== thread.id)
+}
+
 watch(() => campaignStore.activeCampaignId, () => {
   activeId.value = null
   fetchNotes()
+  fetchThreads()
 })
 
 async function createNote() {
@@ -300,6 +372,7 @@ function formatDate(ms: number): string {
 
 onMounted(async () => {
   await fetchNotes()
+  await fetchThreads()
   const requestedNote = typeof route.query.note === 'string' ? route.query.note : null
   if (requestedNote && notes.value.some((note) => note.id === requestedNote)) {
     selectNote(requestedNote)
@@ -387,6 +460,44 @@ const unsaved = computed(() => {
       <h1 class="page-title">Notes</h1>
       <p class="page-subtitle">Keep the important parts of the story within reach.</p>
     </header>
+
+    <section class="threads-panel" aria-labelledby="threads-heading">
+      <div class="threads-heading-row">
+        <div>
+          <p class="page-kicker">Between sessions</p>
+          <h2 id="threads-heading">Open threads</h2>
+        </div>
+        <span class="thread-count">{{ threads.filter((thread) => !thread.is_done).length }} active</span>
+      </div>
+      <form class="thread-form" @submit.prevent="addThread">
+        <input
+          v-model="newThreadTitle"
+          class="input"
+          type="text"
+          placeholder="Add a quest, question, or follow-up..."
+          aria-label="New open thread"
+        />
+        <button type="submit" class="btn btn--primary">Add thread</button>
+      </form>
+      <div v-if="threadsLoading" class="thread-empty">Loading open threads...</div>
+      <div v-else-if="threads.length === 0" class="thread-empty">
+        No open threads yet. Capture the thing the party should remember next time.
+      </div>
+      <ul v-else class="thread-list">
+        <li v-for="thread in threads" :key="thread.id" class="thread-row" :class="{ 'thread-row--done': thread.is_done }">
+          <label class="thread-label">
+            <input
+              type="checkbox"
+              :checked="thread.is_done"
+              :aria-label="`Mark ${thread.title} ${thread.is_done ? 'open' : 'complete'}`"
+              @change="toggleThread(thread)"
+            />
+            <span>{{ thread.title }}</span>
+          </label>
+          <button type="button" class="thread-delete" @click="deleteThread(thread)">Remove</button>
+        </li>
+      </ul>
+    </section>
 
     <!-- Editor / New note — always at the top -->
     <article class="editor" aria-label="Note editor">
@@ -757,6 +868,110 @@ const unsaved = computed(() => {
   color: var(--dnd-muted);
   font-size: 0.95rem;
   margin: 0.35rem 0 0;
+}
+
+.threads-panel {
+  padding: 1.25rem;
+  background: var(--dnd-elevated);
+  border: 1px solid rgba(32, 36, 42, 0.1);
+  border-top: 3px solid var(--dnd-accent-2);
+  border-radius: 10px;
+}
+
+.threads-heading-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.threads-heading-row .page-kicker {
+  margin-bottom: 0.2rem;
+}
+
+.threads-heading-row h2 {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 1.55rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.thread-count {
+  color: var(--dnd-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.thread-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.thread-form .input {
+  flex: 1;
+}
+
+.thread-empty {
+  color: var(--dnd-muted);
+  font-size: 0.82rem;
+  padding: 0.7rem 0 0.2rem;
+}
+
+.thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.thread-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  background: var(--dnd-input-bg);
+}
+
+.thread-label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  color: var(--dnd-ink);
+  font-size: 0.84rem;
+}
+
+.thread-label input {
+  flex-shrink: 0;
+  accent-color: var(--dnd-accent);
+}
+
+.thread-row--done .thread-label {
+  color: var(--dnd-muted);
+  text-decoration: line-through;
+}
+
+.thread-delete {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dnd-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+}
+
+.thread-delete:hover {
+  color: var(--dnd-accent);
 }
 
 /* ----- Editor (top section) ----- */
@@ -1320,6 +1535,9 @@ const unsaved = computed(() => {
   }
   .campaign-context {
     flex-wrap: wrap;
+  }
+  .thread-form {
+    flex-direction: column;
   }
   .context-links {
     width: 100%;
