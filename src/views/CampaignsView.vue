@@ -64,11 +64,17 @@ function selectCampaign(id: string) {
 
 <template>
   <main class="campaigns-page">
-    <h1 class="page-title">Your Campaigns</h1>
+    <header class="page-header">
+      <p class="page-kicker">Campaign library / your tables</p>
+      <h1 class="page-title">Your campaigns</h1>
+      <p class="page-subtitle">Create a new world or step back into one already in motion.</p>
+    </header>
 
     <div class="actions-row">
       <section class="action-card">
+        <span class="action-kicker">Start something new</span>
         <h2 class="card-heading">Create a campaign</h2>
+        <p class="card-copy">Set up the shared home for your next story.</p>
         <div class="card-form">
           <input
             v-model="newName"
@@ -84,7 +90,9 @@ function selectCampaign(id: string) {
       </section>
 
       <section class="action-card">
+        <span class="action-kicker">Join your party</span>
         <h2 class="card-heading">Join a campaign</h2>
+        <p class="card-copy">Enter an invite code from the campaign owner.</p>
         <div class="card-form">
           <input
             v-model="joinCode"
@@ -113,6 +121,7 @@ function selectCampaign(id: string) {
           :class="{ 'campaign-card--active': c.id === campaign.activeCampaignId }"
         >
           <button class="campaign-card-btn" @click="selectCampaign(c.id)">
+            <span class="campaign-status">{{ c.id === campaign.activeCampaignId ? 'Active campaign' : 'Campaign' }}</span>
             <span class="campaign-name">{{ c.name }}</span>
             <span class="campaign-meta">
               Code: <code class="invite-code">{{ c.invite_code }}</code>
@@ -126,8 +135,8 @@ function selectCampaign(id: string) {
 
 <style scoped>
 .campaigns-page {
-  padding: 3rem 1rem 4rem;
-  max-width: 700px;
+  padding: 2.5rem 2rem 4rem;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -135,11 +144,36 @@ function selectCampaign(id: string) {
 }
 
 .page-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.75rem;
+  font-family: 'Spectral', serif;
+  font-size: clamp(2.1rem, 4vw, 3rem);
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.page-header {
+  padding: 0.75rem 0.25rem 0;
+}
+
+.page-kicker,
+.action-kicker,
+.campaign-status {
+  color: var(--dnd-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.page-kicker {
+  margin: 0 0 0.45rem;
+}
+
+.page-subtitle {
+  color: var(--dnd-muted);
+  font-size: 0.95rem;
+  margin: 0.35rem 0 0;
 }
 
 .actions-row {
@@ -149,19 +183,28 @@ function selectCampaign(id: string) {
 }
 
 .action-card {
-  padding: 1.25rem;
-  background: var(--dnd-paper);
-  border-radius: 12px;
+  padding: 1.35rem;
+  background: var(--dnd-elevated);
+  border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-top: 3px solid var(--dnd-accent);
 }
 
+.action-kicker { color: var(--dnd-accent-2); }
+
 .card-heading {
-  font-family: 'Cinzel', serif;
-  font-size: 1rem;
+  font-family: 'Spectral', serif;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--dnd-ink);
   margin: 0 0 0.75rem;
+}
+
+.card-copy {
+  color: var(--dnd-muted);
+  font-size: 0.8rem;
+  margin: -0.35rem 0 0.85rem;
 }
 
 .card-form {
@@ -225,22 +268,25 @@ function selectCampaign(id: string) {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1rem;
 }
 
 .campaign-card {
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  background: var(--dnd-paper);
+  background: var(--dnd-elevated);
+  border-top: 3px solid transparent;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .campaign-card:hover {
-  border-color: rgba(0, 0, 0, 0.16);
+  border-color: var(--dnd-accent-2);
+  border-top-color: var(--dnd-accent-2);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 .campaign-card--active {
   border-color: var(--dnd-accent);
+  border-top-color: var(--dnd-accent);
   box-shadow: 0 0 0 2px rgba(139, 58, 47, 0.15);
 }
 
@@ -264,10 +310,15 @@ function selectCampaign(id: string) {
 }
 
 .campaign-name {
-  font-family: 'Cinzel', serif;
+  font-family: 'Spectral', serif;
   font-weight: 700;
   font-size: 1.05rem;
   color: var(--dnd-ink);
+}
+
+.campaign-status {
+  color: var(--dnd-muted);
+  font-size: 0.62rem;
 }
 
 .campaign-meta {
