@@ -7,7 +7,7 @@ import { showToast } from '@/composables/useToast'
 const auth = useAuthStore()
 const router = useRouter()
 
-const mode = ref<'login' | 'register'>('login')
+const mode = ref<'login' | 'register' | 'forgot'>('login')
 const email = ref('')
 const password = ref('')
 const displayName = ref('')
@@ -15,8 +15,15 @@ const busy = ref(false)
 const errorMsg = ref('')
 
 const isLogin = computed(() => mode.value === 'login')
-const heading = computed(() => (isLogin.value ? 'Sign In' : 'Create Account'))
-const submitLabel = computed(() => (isLogin.value ? 'Sign In' : 'Register'))
+const isForgot = computed(() => mode.value === 'forgot')
+const heading = computed(() => {
+  if (isForgot.value) return 'Reset Password'
+  return isLogin.value ? 'Sign In' : 'Create Account'
+})
+const submitLabel = computed(() => {
+  if (isForgot.value) return 'Send Reset Link'
+  return isLogin.value ? 'Sign In' : 'Register'
+})
 
 function formatAuthError(err: unknown): string {
   if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: string }).message === 'string') {
@@ -38,12 +45,21 @@ function toggleMode() {
   errorMsg.value = ''
 }
 
+function showForgotPassword() {
+  mode.value = 'forgot'
+  errorMsg.value = ''
+}
+
 async function handleSubmit() {
   errorMsg.value = ''
   const e = email.value.trim()
   const p = password.value
 
-  if (!e || !p) {
+  if (!e) {
+    errorMsg.value = 'Email is required.'
+    return
+  }
+  if (!isForgot.value && !p) {
     errorMsg.value = 'Email and password are required.'
     return
   }
@@ -54,7 +70,11 @@ async function handleSubmit() {
 
   busy.value = true
   try {
-    if (isLogin.value) {
+    if (isForgot.value) {
+      await auth.resetPasswordForEmail(e)
+      showToast('Check your email for a reset link.', 'info', 5000)
+      mode.value = 'login'
+    } else if (isLogin.value) {
       await auth.signIn(e, p)
       showToast('Welcome back!', 'success')
       router.push('/')
@@ -81,11 +101,17 @@ async function handleSubmit() {
     <div class="auth-card">
       <h1 class="auth-heading">{{ heading }}</h1>
       <p class="auth-sub">
-        {{ isLogin ? 'Sign in to sync your notes and links.' : 'Join the party — create your account.' }}
+        {{
+          isForgot
+            ? 'Enter your email and we will send a reset link.'
+            : isLogin
+              ? 'Sign in to sync your notes and links.'
+              : 'Join the party — create your account.'
+        }}
       </p>
 
       <form class="auth-form" @submit.prevent="handleSubmit">
-        <div v-if="!isLogin" class="field">
+        <div v-if="!isLogin && !isForgot" class="field">
           <label for="auth-name" class="label">Display name</label>
           <input
             id="auth-name"
@@ -110,7 +136,7 @@ async function handleSubmit() {
           />
         </div>
 
-        <div class="field">
+        <div v-if="!isForgot" class="field">
           <label for="auth-password" class="label">Password</label>
           <input
             id="auth-password"
@@ -130,10 +156,14 @@ async function handleSubmit() {
         </button>
       </form>
 
+      <button v-if="isLogin" type="button" class="toggle-link forgot-link" @click="showForgotPassword">
+        Forgot password?
+      </button>
+
       <p class="toggle-text">
-        {{ isLogin ? "Don't have an account?" : 'Already have an account?' }}
+        {{ isForgot ? 'Remembered it?' : isLogin ? "Don't have an account?" : 'Already have an account?' }}
         <button type="button" class="toggle-link" @click="toggleMode">
-          {{ isLogin ? 'Register' : 'Sign in' }}
+          {{ isForgot ? 'Back to sign in' : isLogin ? 'Register' : 'Sign in' }}
         </button>
       </p>
     </div>
@@ -267,5 +297,10 @@ async function handleSubmit() {
 }
 .toggle-link:hover {
   filter: brightness(1.15);
+}
+
+.forgot-link {
+  display: block;
+  margin: 1rem auto 0;
 }
 </style>
