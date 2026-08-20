@@ -819,9 +819,18 @@ watch(
 
 .session-action--primary {
   padding: 0.35rem 0.55rem;
+  border: 0;
   border-radius: 5px;
   background: var(--dnd-accent);
   color: var(--dnd-on-accent);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.session-action--primary:focus-visible,
+.session-action--button:focus-visible {
+  outline: 2px solid var(--dnd-accent-2);
+  outline-offset: 2px;
 }
 
 .note-row {
