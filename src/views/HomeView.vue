@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { computed, onMounted, watch } from 'vue'
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
@@ -8,6 +8,7 @@ import { useCampaignStore } from '@/stores/campaign'
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
+const route = useRoute()
 
 const activeCampaign = computed(() => campaignStore.activeCampaign)
 const recentNotes = ref<{ id: string; title: string; body: string; updated_at: string }[]>([])
@@ -27,6 +28,10 @@ const dashboardLoading = ref(false)
 const latestSession = computed(
   () => recentNotes.value.find((note) => /session/i.test(note.title)) ?? null,
 )
+const sessionMode = ref(false)
+const sessionNote = ref<{ id: string; title: string; body: string } | null>(null)
+const captureType = ref('Discovery')
+const captureText = ref('')
 
 function hpPercent(character: (typeof party.value)[number]) {
   if (!character.max_hp) return 0
@@ -82,7 +87,51 @@ async function loadCommandCenter() {
   }
 }
 
-onMounted(loadCommandCenter)
+async function openSessionMode(noteId?: string) {
+  if (!activeCampaign.value || !auth.user) return
+  if (noteId) {
+    const note = recentNotes.value.find((item) => item.id === noteId)
+    if (note) sessionNote.value = { id: note.id, title: note.title, body: note.body }
+  } else {
+    const dateLabel = new Intl.DateTimeFormat(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' }).format(new Date())
+    const { data, error } = await supabase
+      .from('notes')
+      .insert({
+        user_id: auth.user.id,
+        campaign_id: activeCampaign.value.id,
+        title: `${dateLabel} Session`,
+        body: '## Recap\n\n## Discoveries\n\n## NPCs & locations\n\n## Open threads\n\n',
+        tags: [],
+        is_shared: true,
+        updated_at: new Date().toISOString(),
+      })
+      .select('id, title, body')
+      .single()
+    if (error) return
+    sessionNote.value = data
+    await loadCommandCenter()
+  }
+  sessionMode.value = Boolean(sessionNote.value)
+}
+
+async function addSessionCapture() {
+  if (!sessionNote.value || !captureText.value.trim()) return
+  const body = `${sessionNote.value.body.trimEnd()}\n\n## ${captureType.value}\n${captureText.value.trim()}\n`
+  const { error } = await supabase
+    .from('notes')
+    .update({ body, updated_at: new Date().toISOString() })
+    .eq('id', sessionNote.value.id)
+  if (error) return
+  sessionNote.value.body = body
+  captureText.value = ''
+  await loadCommandCenter()
+}
+
+onMounted(async () => {
+  await loadCommandCenter()
+  const requestedSession = typeof route.query.session === 'string' ? route.query.session : null
+  if (requestedSession) await openSessionMode(requestedSession === 'new' ? undefined : requestedSession)
+})
 watch(
   [() => campaignStore.activeCampaignId, () => campaignStore.campaigns.length],
   loadCommandCenter,
@@ -101,6 +150,29 @@ watch(
         <span class="signal-dot" aria-hidden="true"></span>
         <span>Campaign active</span>
       </div>
+    </section>
+
+    <section v-if="sessionMode && sessionNote" class="hub-session-panel" aria-label="Session mode">
+      <div class="hub-session-heading">
+        <div>
+          <span class="panel-kicker">Session mode</span>
+          <h2>{{ sessionNote.title }}</h2>
+          <p>Capture the moment without leaving the campaign hub.</p>
+        </div>
+        <button type="button" class="session-mode-close" @click="sessionMode = false">Exit session</button>
+      </div>
+      <form class="hub-capture-form" @submit.prevent="addSessionCapture">
+        <select v-model="captureType" aria-label="Capture type">
+          <option>Discovery</option>
+          <option>NPC</option>
+          <option>Location</option>
+          <option>Decision</option>
+          <option>Open thread</option>
+        </select>
+        <input v-model="captureText" type="text" placeholder="What just happened?" aria-label="Session capture" />
+        <button type="submit" class="session-action session-action--primary">Capture</button>
+        <RouterLink :to="{ path: '/notes', query: { note: sessionNote.id } }" class="session-action">Open full notes ↗</RouterLink>
+      </form>
     </section>
 
     <section class="intel-grid" aria-label="Campaign intelligence">
@@ -134,10 +206,10 @@ watch(
           <span class="session-continue-label">Latest session</span>
           <strong>{{ latestSession.title }}</strong>
           <div class="session-actions">
-            <RouterLink :to="{ path: '/notes', query: { note: latestSession.id } }" class="session-action session-action--primary">
+            <RouterLink :to="{ path: '/', query: { session: latestSession.id } }" class="session-action session-action--primary">
               Continue session
             </RouterLink>
-            <RouterLink to="/notes?start=session" class="session-action">Start new</RouterLink>
+            <RouterLink to="/?session=new" class="session-action">Start new</RouterLink>
           </div>
         </div>
         <div v-if="dashboardLoading" class="panel-empty">Loading campaign notes...</div>
@@ -360,6 +432,64 @@ watch(
   top: -8rem;
   border: 1px solid rgba(245, 198, 106, 0.18);
   transform: rotate(45deg);
+}
+
+.hub-session-panel {
+  margin-top: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(169, 76, 61, 0.38);
+  border-radius: 9px;
+  background: rgba(169, 76, 61, 0.1);
+}
+
+.hub-session-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.hub-session-heading h2 {
+  color: var(--dnd-ink);
+  font-family: 'Spectral', serif;
+  font-size: 1.45rem;
+  line-height: 1;
+  margin: 0.2rem 0 0;
+}
+
+.hub-session-heading p {
+  color: var(--dnd-muted);
+  font-size: 0.8rem;
+  margin: 0.35rem 0 0;
+}
+
+.hub-capture-form {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.hub-capture-form select,
+.hub-capture-form input {
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(32, 36, 42, 0.14);
+  border-radius: 6px;
+  background: var(--dnd-input-bg);
+  color: var(--dnd-ink);
+  font: inherit;
+}
+
+.hub-capture-form input {
+  flex: 1;
+}
+
+@media (max-width: 620px) {
+  .hub-capture-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .command-hero .hero-kicker {
