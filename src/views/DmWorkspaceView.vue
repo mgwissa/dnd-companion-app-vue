@@ -82,6 +82,44 @@ interface PartyCharacter {
   temp_hp: number
 }
 
+interface ContentPackCombatant {
+  name: string
+  kind: CombatantKind
+  initiative?: number | null
+  armorClass?: number | null
+  maxHp: number
+  currentHp?: number
+  tempHp?: number
+  conditions?: string[]
+}
+
+interface ContentPackScene {
+  key: string
+  title: string
+  estimatedMinutes: number
+  purpose: string
+  readAloud: string
+  secrets: string
+  notes: string
+}
+
+interface ContentPackEncounter {
+  title: string
+  sceneKey: string
+  combatants: ContentPackCombatant[]
+}
+
+interface DmContentPack {
+  version: 1
+  run: {
+    title: string
+    plannedMinutes: number
+    overview: string
+  }
+  scenes: ContentPackScene[]
+  encounters: ContentPackEncounter[]
+}
+
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
 
@@ -123,6 +161,14 @@ const hpAmounts = ref<Record<string, number>>({})
 const conditionDrafts = ref<Record<string, string>>({})
 const captureType = ref('Discovery')
 const captureText = ref('')
+const importDialogOpen = ref(false)
+const importText = ref('')
+const importPack = ref<DmContentPack | null>(null)
+const importSourceName = ref('')
+const importError = ref('')
+const importing = ref(false)
+const loadingStarterPack = ref(false)
+const exporting = ref(false)
 
 const campaignId = computed(() => campaignStore.activeCampaignId)
 const campaignName = computed(() => campaignStore.activeCampaign?.name ?? 'Campaign')
@@ -201,6 +247,9 @@ const paceMessage = computed(() => {
 })
 const completedSceneCount = computed(
   () => scenes.value.filter((scene) => scene.status === 'completed').length,
+)
+const importSceneMinutes = computed(
+  () => importPack.value?.scenes.reduce((total, scene) => total + scene.estimatedMinutes, 0) ?? 0,
 )
 
 function isMissingTableError(error: { code?: string; message?: string } | null) {
@@ -897,6 +946,289 @@ function sceneForEncounter(encounter: DmEncounter) {
   )
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function packString(record: Record<string, unknown>, key: string, fallback = '') {
+  const value = record[key]
+  return typeof value === 'string' ? value : fallback
+}
+
+function packNumber(record: Record<string, unknown>, key: string, fallback: number) {
+  const value = record[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function parseContentPack(value: unknown): DmContentPack {
+  if (!isRecord(value)) throw new Error('The content pack must be a JSON object.')
+  if (value.version !== 1) throw new Error('Only content pack version 1 is supported.')
+  if (!isRecord(value.run)) throw new Error('The content pack is missing its run details.')
+  if (!Array.isArray(value.scenes) || value.scenes.length === 0) {
+    throw new Error('The content pack needs at least one scene.')
+  }
+
+  const title = packString(value.run, 'title').trim()
+  if (!title) throw new Error('The run sheet needs a title.')
+  const keys = new Set<string>()
+  const scenes = value.scenes.map((rawScene, index): ContentPackScene => {
+    if (!isRecord(rawScene)) throw new Error(`Scene ${index + 1} is not valid.`)
+    const key = packString(rawScene, 'key').trim()
+    const sceneTitle = packString(rawScene, 'title').trim()
+    if (!key) throw new Error(`Scene ${index + 1} needs a stable key.`)
+    if (keys.has(key)) throw new Error(`The scene key “${key}” is used more than once.`)
+    if (!sceneTitle) throw new Error(`Scene ${index + 1} needs a title.`)
+    keys.add(key)
+    return {
+      key,
+      title: sceneTitle,
+      estimatedMinutes: Math.max(0, Math.min(480, packNumber(rawScene, 'estimatedMinutes', 20))),
+      purpose: packString(rawScene, 'purpose'),
+      readAloud: packString(rawScene, 'readAloud'),
+      secrets: packString(rawScene, 'secrets'),
+      notes: packString(rawScene, 'notes'),
+    }
+  })
+
+  const rawEncounters = value.encounters ?? []
+  if (!Array.isArray(rawEncounters)) throw new Error('Encounters must be a JSON array.')
+  const encounters = rawEncounters.map((rawEncounter, encounterIndex): ContentPackEncounter => {
+    if (!isRecord(rawEncounter)) throw new Error(`Encounter ${encounterIndex + 1} is not valid.`)
+    const encounterTitle = packString(rawEncounter, 'title').trim()
+    const sceneKey = packString(rawEncounter, 'sceneKey').trim()
+    if (!encounterTitle) throw new Error(`Encounter ${encounterIndex + 1} needs a title.`)
+    if (sceneKey && !keys.has(sceneKey)) {
+      throw new Error(`Encounter “${encounterTitle}” references the unknown scene “${sceneKey}”.`)
+    }
+    const rawCombatants = rawEncounter.combatants ?? []
+    if (!Array.isArray(rawCombatants)) {
+      throw new Error(`Combatants for “${encounterTitle}” must be a JSON array.`)
+    }
+    const parsedCombatants = rawCombatants.map(
+      (rawCombatant, combatantIndex): ContentPackCombatant => {
+        if (!isRecord(rawCombatant)) {
+          throw new Error(`Combatant ${combatantIndex + 1} in “${encounterTitle}” is not valid.`)
+        }
+        const name = packString(rawCombatant, 'name').trim()
+        if (!name) {
+          throw new Error(`Combatant ${combatantIndex + 1} in “${encounterTitle}” needs a name.`)
+        }
+        const rawKind = packString(rawCombatant, 'kind', 'enemy')
+        if (!['pc', 'enemy', 'ally'].includes(rawKind)) {
+          throw new Error(`Combatant “${name}” has an unsupported kind.`)
+        }
+        const conditions = Array.isArray(rawCombatant.conditions)
+          ? rawCombatant.conditions.filter(
+              (condition): condition is string => typeof condition === 'string',
+            )
+          : []
+        const maxHp = Math.max(0, packNumber(rawCombatant, 'maxHp', 1))
+        return {
+          name,
+          kind: rawKind as CombatantKind,
+          initiative: typeof rawCombatant.initiative === 'number' ? rawCombatant.initiative : null,
+          armorClass:
+            typeof rawCombatant.armorClass === 'number'
+              ? Math.max(0, rawCombatant.armorClass)
+              : null,
+          maxHp,
+          currentHp: Math.max(0, packNumber(rawCombatant, 'currentHp', maxHp)),
+          tempHp: Math.max(0, packNumber(rawCombatant, 'tempHp', 0)),
+          conditions,
+        }
+      },
+    )
+    return { title: encounterTitle, sceneKey, combatants: parsedCombatants }
+  })
+
+  return {
+    version: 1,
+    run: {
+      title,
+      plannedMinutes: Math.max(15, Math.min(720, packNumber(value.run, 'plannedMinutes', 180))),
+      overview: packString(value.run, 'overview'),
+    },
+    scenes,
+    encounters,
+  }
+}
+
+function resetImporter() {
+  importText.value = ''
+  importPack.value = null
+  importSourceName.value = ''
+  importError.value = ''
+}
+
+function openImporter() {
+  resetImporter()
+  importDialogOpen.value = true
+}
+
+function closeImporter() {
+  if (importing.value) return
+  importDialogOpen.value = false
+}
+
+function previewImportText(sourceName = 'Pasted JSON') {
+  importError.value = ''
+  importPack.value = null
+  try {
+    importPack.value = parseContentPack(JSON.parse(importText.value) as unknown)
+    importSourceName.value = sourceName
+  } catch (error) {
+    importError.value = error instanceof Error ? error.message : 'The JSON could not be read.'
+  }
+}
+
+async function loadStarterPack() {
+  importDialogOpen.value = true
+  resetImporter()
+  loadingStarterPack.value = true
+  try {
+    const response = await fetch(`${import.meta.env.BASE_URL}content-packs/road-to-candlekeep.json`)
+    if (!response.ok) throw new Error('The bundled one-shot could not be loaded.')
+    importText.value = await response.text()
+    previewImportText('Bundled Candlekeep draft')
+  } catch (error) {
+    importError.value =
+      error instanceof Error ? error.message : 'The starter pack could not be loaded.'
+  } finally {
+    loadingStarterPack.value = false
+  }
+}
+
+async function onContentPackFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  importText.value = await file.text()
+  previewImportText(file.name)
+  input.value = ''
+}
+
+async function importContentPack() {
+  if (!importPack.value || !campaignId.value) return
+  importing.value = true
+  importError.value = ''
+  try {
+    const { error } = await supabase.rpc('import_dm_run_pack', {
+      p_campaign_id: campaignId.value,
+      p_pack: importPack.value,
+    })
+    if (error) throw error
+    importDialogOpen.value = false
+    showToast(`Imported “${importPack.value.run.title}”`, 'success')
+    await initialize()
+  } catch (error) {
+    console.warn('Failed to import content pack', error)
+    const message =
+      error instanceof Error
+        ? error.message
+        : isRecord(error) && typeof error.message === 'string'
+          ? error.message
+          : 'The content pack could not be imported.'
+    importError.value = /import_dm_run_pack|schema cache/i.test(message)
+      ? 'Apply migration 009_import_dm_run_pack.sql, then try again.'
+      : message
+  } finally {
+    importing.value = false
+  }
+}
+
+function contentPackFilename(title: string) {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `${slug || 'dm-run-sheet'}.json`
+}
+
+async function exportContentPack() {
+  if (!run.value) return
+  exporting.value = true
+  try {
+    let overview = 'Exported DM run sheet.'
+    if (run.value.log_note_id) {
+      const { data } = await supabase
+        .from('notes')
+        .select('body')
+        .eq('id', run.value.log_note_id)
+        .single()
+      if (typeof data?.body === 'string') {
+        overview = data.body.replace(/^# .*\r?\n+/, '').trim()
+      }
+    }
+
+    const sceneKeys = new Map<string, string>()
+    const packedScenes = orderedScenes.value.map((scene, index): ContentPackScene => {
+      const slug = scene.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+      const key = `${slug || 'scene'}-${index + 1}`
+      sceneKeys.set(scene.id, key)
+      return {
+        key,
+        title: scene.title,
+        estimatedMinutes: scene.estimated_minutes,
+        purpose: scene.purpose,
+        readAloud: scene.read_aloud,
+        secrets: scene.secrets,
+        notes: scene.notes,
+      }
+    })
+
+    const packedEncounters = encounters.value.map(
+      (encounter): ContentPackEncounter => ({
+        title: encounter.title,
+        sceneKey: encounter.scene_id ? (sceneKeys.get(encounter.scene_id) ?? '') : '',
+        combatants: combatants.value
+          .filter(
+            (combatant) =>
+              combatant.encounter_id === encounter.id &&
+              combatant.kind !== 'pc' &&
+              !combatant.source_character_id,
+          )
+          .map((combatant) => ({
+            name: combatant.name,
+            kind: combatant.kind,
+            initiative: combatant.initiative,
+            armorClass: combatant.armor_class,
+            maxHp: combatant.max_hp,
+            currentHp: combatant.current_hp,
+            tempHp: combatant.temp_hp,
+            conditions: [...combatant.conditions],
+          })),
+      }),
+    )
+
+    const pack: DmContentPack = {
+      version: 1,
+      run: {
+        title: run.value.title,
+        plannedMinutes: run.value.planned_minutes,
+        overview,
+      },
+      scenes: packedScenes,
+      encounters: packedEncounters,
+    }
+    const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = contentPackFilename(run.value.title)
+    anchor.click()
+    URL.revokeObjectURL(url)
+    showToast('Content pack exported', 'success')
+  } catch (error) {
+    console.warn('Failed to export content pack', error)
+    showToast('Failed to export the content pack', 'error')
+  } finally {
+    exporting.value = false
+  }
+}
+
 onMounted(() => {
   setTimer()
   initialize()
@@ -923,7 +1255,9 @@ watch(campaignId, initialize)
     <section v-else-if="schemaMissing" class="state-card">
       <span class="state-icon" aria-hidden="true">⚙</span>
       <h1>DM workspace needs its migration</h1>
-      <p>Apply <code>008_create_dm_workspace.sql</code> to Supabase, then refresh this page.</p>
+      <p>
+        Apply migrations <code>008</code> and <code>009</code> to Supabase, then refresh this page.
+      </p>
     </section>
 
     <section v-else-if="!run" class="setup-card">
@@ -935,22 +1269,41 @@ watch(campaignId, initialize)
           workspace.
         </p>
       </div>
-      <form class="setup-form" @submit.prevent="createRun">
-        <label>
-          <span>Run sheet title</span>
-          <input v-model="setupTitle" type="text" placeholder="The lantern under Blackmere" />
-        </label>
-        <label>
-          <span>Table time</span>
-          <div class="input-with-suffix">
-            <input v-model.number="setupMinutes" type="number" min="15" max="720" step="15" />
-            <span>minutes</span>
-          </div>
-        </label>
-        <button class="button button--primary button--large" type="submit" :disabled="saving">
-          {{ saving ? 'Preparing...' : 'Create run sheet' }}
+      <div class="setup-options">
+        <form class="setup-form" @submit.prevent="createRun">
+          <label>
+            <span>Run sheet title</span>
+            <input v-model="setupTitle" type="text" placeholder="The lantern under Blackmere" />
+          </label>
+          <label>
+            <span>Table time</span>
+            <div class="input-with-suffix">
+              <input v-model.number="setupMinutes" type="number" min="15" max="720" step="15" />
+              <span>minutes</span>
+            </div>
+          </label>
+          <button class="button button--primary button--large" type="submit" :disabled="saving">
+            {{ saving ? 'Preparing...' : 'Create blank run sheet' }}
+          </button>
+        </form>
+        <div class="setup-divider"><span>or start from a content pack</span></div>
+        <button
+          class="starter-pack-button"
+          type="button"
+          :disabled="loadingStarterPack"
+          @click="loadStarterPack"
+        >
+          <span aria-hidden="true">✦</span>
+          <span>
+            <strong>The Road to Candlekeep</strong>
+            <small>Load the bundled seven-scene draft</small>
+          </span>
+          <i aria-hidden="true">→</i>
         </button>
-      </form>
+        <button class="button button--quiet button--block" type="button" @click="openImporter">
+          Import another JSON pack
+        </button>
+      </div>
     </section>
 
     <template v-else>
@@ -1143,6 +1496,14 @@ watch(campaignId, initialize)
           </div>
           <button class="button button--quiet button--block" type="button" @click="saveRunSettings">
             Save settings
+          </button>
+          <button
+            class="button button--quiet button--block"
+            type="button"
+            :disabled="exporting"
+            @click="exportContentPack"
+          >
+            {{ exporting ? 'Exporting...' : 'Export content pack' }}
           </button>
           <button
             v-if="run.status === 'running'"
@@ -1596,6 +1957,110 @@ watch(campaignId, initialize)
       </section>
     </template>
   </main>
+
+  <Teleport to="body">
+    <div v-if="importDialogOpen" class="import-backdrop" @click.self="closeImporter">
+      <section
+        class="import-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-dialog-title"
+      >
+        <header class="import-dialog-header">
+          <div>
+            <span class="panel-kicker">Portable DM data</span>
+            <h2 id="import-dialog-title">Import a content pack</h2>
+            <p>Preview the complete run sheet before anything is added to this campaign.</p>
+          </div>
+          <button type="button" aria-label="Close importer" @click="closeImporter">×</button>
+        </header>
+
+        <div class="import-input-grid">
+          <div class="import-source-actions">
+            <button
+              class="button button--starter button--block"
+              type="button"
+              :disabled="loadingStarterPack"
+              @click="loadStarterPack"
+            >
+              {{ loadingStarterPack ? 'Loading draft...' : 'Load Candlekeep draft' }}
+            </button>
+            <label class="button button--quiet button--block file-button">
+              Choose JSON file
+              <input type="file" accept="application/json,.json" @change="onContentPackFile" />
+            </label>
+          </div>
+          <label class="import-json-field">
+            <span>Or paste content-pack JSON</span>
+            <textarea
+              v-model="importText"
+              rows="8"
+              spellcheck="false"
+              placeholder='{ "version": 1, "run": { ... } }'
+            ></textarea>
+            <button class="button button--quiet" type="button" @click="previewImportText()">
+              Preview pasted JSON
+            </button>
+          </label>
+        </div>
+
+        <p v-if="importError" class="import-error" role="alert">{{ importError }}</p>
+
+        <section v-if="importPack" class="import-preview">
+          <div class="preview-heading">
+            <div>
+              <span class="panel-kicker">Ready to import · {{ importSourceName }}</span>
+              <h3>{{ importPack.run.title }}</h3>
+            </div>
+            <div class="preview-metrics">
+              <span
+                ><strong>{{ importPack.scenes.length }}</strong> scenes</span
+              >
+              <span
+                ><strong>{{ importPack.encounters.length }}</strong> encounters</span
+              >
+              <span
+                ><strong>{{ importPack.run.plannedMinutes }}</strong> min table time</span
+              >
+              <span
+                ><strong>{{ importSceneMinutes }}</strong> min scene plan</span
+              >
+            </div>
+          </div>
+          <ol class="preview-scene-list">
+            <li v-for="(scene, index) in importPack.scenes" :key="scene.key">
+              <span>{{ String(index + 1).padStart(2, '0') }}</span>
+              <strong>{{ scene.title }}</strong>
+              <small>{{ scene.estimatedMinutes }} min</small>
+            </li>
+          </ol>
+          <p>
+            The run, private briefing, scenes, encounters, and non-player combatants will be added
+            together. Your active party remains dynamic.
+          </p>
+        </section>
+
+        <footer class="import-dialog-footer">
+          <button
+            class="button button--quiet"
+            type="button"
+            :disabled="importing"
+            @click="closeImporter"
+          >
+            Cancel
+          </button>
+          <button
+            class="button button--primary"
+            type="button"
+            :disabled="!importPack || importing"
+            @click="importContentPack"
+          >
+            {{ importing ? 'Importing everything...' : 'Import run sheet' }}
+          </button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -1660,6 +2125,11 @@ button {
 .button--live {
   background: #37694f;
   color: #fff;
+}
+
+.button--starter {
+  background: #b88635;
+  color: #fffdf8;
 }
 
 .button--quiet {
@@ -1747,6 +2217,75 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+}
+
+.setup-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.setup-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--dnd-muted);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+}
+
+.setup-divider::before,
+.setup-divider::after {
+  height: 1px;
+  flex: 1;
+  background: rgba(32, 36, 42, 0.1);
+  content: '';
+}
+
+.starter-pack-button {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid rgba(184, 134, 53, 0.3);
+  border-radius: 8px;
+  background: rgba(184, 134, 53, 0.1);
+  color: var(--dnd-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.starter-pack-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.starter-pack-button > span:first-child {
+  color: var(--dnd-accent-2);
+  font-size: 1.2rem;
+}
+
+.starter-pack-button > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.starter-pack-button strong {
+  font-family: 'Spectral', serif;
+  font-size: 0.9rem;
+}
+
+.starter-pack-button small {
+  color: var(--dnd-muted);
+  font-size: 0.65rem;
+}
+
+.starter-pack-button i {
+  color: var(--dnd-accent-2);
+  font-style: normal;
 }
 
 .setup-form label,
@@ -2863,9 +3402,203 @@ textarea:focus {
   margin: 0;
 }
 
+.import-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(10, 11, 15, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.import-dialog {
+  width: min(880px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  border: 1px solid rgba(32, 36, 42, 0.14);
+  border-top: 4px solid var(--dnd-accent-2);
+  border-radius: 12px;
+  background: var(--dnd-elevated);
+  color: var(--dnd-ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
+}
+
+.import-dialog-header,
+.preview-heading,
+.import-dialog-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.import-dialog-header {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(32, 36, 42, 0.1);
+}
+
+.import-dialog-header h2,
+.preview-heading h3 {
+  margin: 0.2rem 0;
+  font-family: 'Spectral', serif;
+  font-weight: 700;
+}
+
+.import-dialog-header h2 {
+  font-size: 1.7rem;
+}
+
+.import-dialog-header p,
+.import-preview > p {
+  color: var(--dnd-muted);
+  font-size: 0.72rem;
+}
+
+.import-dialog-header > button {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--dnd-input-bg);
+  color: var(--dnd-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.import-input-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.55fr) minmax(300px, 1.45fr);
+  gap: 0.8rem;
+  padding: 1rem 0;
+}
+
+.import-source-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-button {
+  position: relative;
+  cursor: pointer;
+}
+
+.file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.import-json-field {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--dnd-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.import-json-field textarea {
+  min-height: 9rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.65rem;
+}
+
+.import-json-field .button {
+  align-self: flex-end;
+}
+
+.import-error {
+  margin-bottom: 0.8rem;
+  padding: 0.7rem;
+  border: 1px solid rgba(169, 76, 61, 0.22);
+  border-radius: 7px;
+  background: rgba(169, 76, 61, 0.08);
+  color: var(--dnd-accent);
+  font-size: 0.72rem;
+}
+
+.import-preview {
+  padding: 1rem;
+  border: 1px solid rgba(184, 134, 53, 0.24);
+  border-radius: 9px;
+  background: rgba(184, 134, 53, 0.07);
+}
+
+.preview-heading {
+  align-items: center;
+}
+
+.preview-heading h3 {
+  font-size: 1.25rem;
+}
+
+.preview-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.35rem;
+}
+
+.preview-metrics span {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: var(--dnd-elevated);
+  color: var(--dnd-muted);
+  font-size: 0.62rem;
+}
+
+.preview-metrics strong {
+  color: var(--dnd-ink);
+}
+
+.preview-scene-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0.8rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preview-scene-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  background: var(--dnd-elevated);
+}
+
+.preview-scene-list span,
+.preview-scene-list small {
+  color: var(--dnd-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.6rem;
+}
+
+.preview-scene-list strong {
+  overflow: hidden;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-dialog-footer {
+  justify-content: flex-end;
+  padding-top: 1rem;
+}
+
 :global(.dark) .panel,
 :global(.dark) .state-card,
-:global(.dark) .setup-card {
+:global(.dark) .setup-card,
+:global(.dark) .import-dialog {
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.28);
 }
@@ -2890,7 +3623,7 @@ textarea:focus {
   .run-settings-panel {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 1fr 1fr auto auto auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: end;
   }
 
@@ -2977,6 +3710,16 @@ textarea:focus {
     display: flex;
   }
 
+  .import-input-grid,
+  .preview-scene-list {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .toolbar-actions {
     justify-content: flex-start;
   }
@@ -3002,6 +3745,21 @@ textarea:focus {
 
   .run-sidebar {
     grid-template-columns: 1fr;
+  }
+
+  .import-backdrop {
+    padding: 0;
+  }
+
+  .import-dialog {
+    max-height: 100vh;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+
+  .preview-metrics {
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
   }
 }
 </style>

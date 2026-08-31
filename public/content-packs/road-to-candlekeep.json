@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "run": {
+    "title": "The Road to Candlekeep Is Paved with Bad Decisions",
+    "plannedMinutes": 180,
+    "overview": "PREMISE\nVhalrix the Recall-Eater stole the Shield of the Hidden Lord to consume the infernal power imprisoned within it. The shield defended itself by forming a contained Hell from the memories it absorbed while traveling with the party. Vhalrix pulled the characters inside because their memories are the keys to opening the prison. They must reclaim three Truths, defeat Vhalrix, recover the shield, and decide which of two possible heroes returns.\n\nCURRENT MISSION\nThe party was traveling to Candlekeep with a shield they do not understand. A demon ambushed them and escaped with it. If they survive this realm, Candlekeep remains their destination.\n\nPARTY NOTES\n• Dax Darkmoon — level 5 Shadar-kai Soulknife rogue. Secretly hates the Flaming Fist after watching its soldiers abuse civilians during a night of reconnaissance. Do not force him to disclose it.\n• Eldara — level 5 elf Battle Master. Give her direct physical objectives and a clear enemy rather than demanding introspection.\n• Jon Meatshield — level 4 Kalashtar barbarian, likely absent. If present, give him the real DC 20 gate in The Warning They Ignored. Run one fewer minion if absent.\n• Korrath Drakenscale — level 5 dragonborn Conquest paladin. Replaced Brody and shares Brody's player. The final choice belongs entirely to this player.\n• Morn — level 4 half-orc Life cleric. Former soldier carrying the weight of a failure; functionally the party healer. His remedy shield contains a vial he did not place there.\n• Ori Maru — level 5 Githyanki Psi Warrior. Keep dialogue optional and let observation or decisive action communicate for him.\n• New character — the Unwritten. The realm has no memories of this character and cannot rewrite them. Once per scene, the player may ask what detail does not belong; answer with a useful seam, false memory, exit, or vulnerability.\n\nRUNNING PRINCIPLES\nKeep the recap darkly funny but factual, not punitive. Let players correct false memories aloud. Never make roleplay confession the only solution. The surprise is Brody's opportunity to return; the cost of that choice must be explained clearly and privately. Bring everyone to level 5 if practical, and rebuild Brody at level 5 if he returns.\n\nTHE THREE TRUTHS\nTruth of the Song cancels one group fear, illusion, or psychic effect in the finale. Truth of the Dead leaves one falling character at 1 HP instead. Truth of the Warning turns one successful attack against a party member into a complete miss. Use physical tokens if possible."
+  },
+  "scenes": [
+    {
+      "key": "road-folds",
+      "title": "The Road Folds",
+      "estimatedMinutes": 10,
+      "purpose": "Pull the party into the contained Hell, establish the shield as the source, and make the new character immediately useful.",
+      "readAloud": "Candlekeep remains a dark tooth against the horizon, never drawing closer. Behind you, the road repeats: the same dead tree, the same overturned milestone, the same smear of black blood.\n\nThen the stolen shield screams.\n\nThe sound comes from beneath your feet. The road splits like wet paper, revealing fire below—and something in that fire is singing the Elfsong backward.",
+      "secrets": "Vhalrix did not escape cleanly. The shield trapped the demon inside its emergency prison and then pulled in everyone whose memories had touched it. The imprisoned intelligence within the shield is helping the party only because Vhalrix threatens it. It should remain an unreliable ally.\n\nThe realm calls the new character 'the part that was never written.' Because it has no memories of them, Vhalrix cannot anticipate or revise their actions.",
+      "notes": "Cold open immediately after the theft; do not replay the roadside fight. Let each character describe one instant of falling through an image from an earlier session. Everyone lands in a ruined version of the Elfsong Tavern.\n\nTHE UNWRITTEN\nOnce per scene, the new player may ask: 'What detail doesn't belong?' Reveal a false memory, hidden exit, vulnerable enemy, or useful object. Prompt them if they have not used it and the scene begins to stall.\n\nTransition: an empty tavern waits below, and the Elfsong is playing backward."
+    },
+    {
+      "key": "elfsong-backward",
+      "title": "The Elfsong Played Backward",
+      "estimatedMinutes": 20,
+      "purpose": "Let the players reconstruct the campaign chronology themselves and introduce the three-Truth structure.",
+      "readAloud": "The tavern is empty, but every chair is pulled out as though its occupant stood at the same instant. Four scorched pictures hang above the bar: a singing tavern, a bathhouse door, prisoners at a noble table, and a shield disappearing down the road.\n\nThe pictures twitch, rearrange themselves, and begin telling your story incorrectly.",
+      "secrets": "The correct order is Elfsong, bathhouse, Vanthampur capture and Brody's death, then the stolen shield on the Candlekeep road. Vhalrix deliberately depicts Brody abandoning the party, the bathhouse as a failure, and the party willingly giving away the shield. Every time the players correct a lie, the realm becomes less stable.\n\nDAX — Through a window, Dax sees the night he watched Flaming Fist soldiers shove civilians against a wall, steal their coin, and strike anyone who objected. Only Dax initially recognizes it.",
+      "notes": "Ask the players to put the four tableaux in chronological order. After each placement ask, 'What actually happened here?' Let them supply the recap. Correct only facts required for the current mission.\n\nPRIVATE NOTE FOR DAX\n'You recognize this night. You watched the Flaming Fist torment these people while you studied their patrols. You told no one—not about what they did, and not about how deeply you came to hate them. The memory has noticed you watching it.'\n\nVhalrix whispers to Dax: 'You despise their cruelty, yet hide that hatred from your companions. Is it their violence you fear—or what you might do if given permission?'\n\nDax may reveal the truth, enter the memory and protect the civilians, steal a Fist insignia, or reject Vhalrix and remain private. Any active refusal produces the Broken Fist token. Once in the finale it destroys one Memory Husk or breaks a restraint on an ally.\n\nREWARD — TRUTH OF THE SONG\nThe party heard the Elfsong and knew they were being drawn toward something terrible, even before they understood it. The token cancels one group fear, illusion, or psychic effect during the finale."
+    },
+    {
+      "key": "bathhouse-unraised",
+      "title": "Bathhouse of the Unraised",
+      "estimatedMinutes": 25,
+      "purpose": "Revisit a genuine party victory, provide a fast opening fight, and give Morn a personal contribution.",
+      "readAloud": "The tavern floor softens beneath your boots and becomes wet tile. The bathhouse has returned, but every pool is filled with ash. Around an infernal brazier stand the dead you left beneath Baldur's Gate—silent, armed, and waiting for an order you never gave.\n\nA voice behind their teeth says, 'You left an army sleeping. Say the word now, and I will give you the strength you were too frightened to claim.'",
+      "secrets": "The offer is false: Vhalrix cannot give the party a lasting army, only make them responsible for these trapped echoes. Refusing the army causes the Ossuary Brute to form from the brazier. Accepting also starts combat, but Vhalrix calls the decision consent. Either way, extinguishing the braziers frees the dead.\n\nMORN — His shield contains a vial labeled 'For those you could not bring home.' He did not place it there. Using it on a brazier automatically extinguishes that brazier and makes the dead soldiers salute before vanishing.",
+      "notes": "Run the linked Bathhouse of the Unraised encounter for two or three rounds. The Ossuary Brute begins with two Unraised Dead; use four if Jon attends.\n\nTHREE BRAZIERS\nA character can extinguish one with an action: DC 14 Athletics, Arcana, or Religion; holy water; a healing remedy; 10 radiant damage; or another strong physical solution. When all three are out, remaining Unraised Dead collapse and the Brute loses its second attack.\n\nOSSUARY BRUTE ACTIONS\nSpeed 30 ft. Multiattack: two Slams, +6 to hit, 2d8 + 4 bludgeoning each. When first reduced below 30 HP, two additional Unraised Dead emerge unless two or more braziers are already extinguished.\n\nUNRAISED DEAD ACTIONS\nSpeed 30 ft. Rusted weapon: +4 to hit, 5 damage. They die from any damage. Treat a sensible area attack as hitting several.\n\nREWARD — TRUTH OF THE DEAD\nThe party entered the bathhouse, survived what waited below, and left the optional army buried rather than claiming it. In the finale, surrender the token when a character would fall unconscious; that character remains at 1 HP instead."
+    },
+    {
+      "key": "warning-ignored",
+      "title": "The Warning They Ignored",
+      "estimatedMinutes": 25,
+      "purpose": "Recap the Vanthampur capture and Brody's death without turning the adventure into a lecture.",
+      "readAloud": "You are seated at a Vanthampur table beneath chandeliers made from executioner's blades. Amrik sits opposite you, looking exhausted rather than surprised. Ori occupies one chair. Beside him is an empty place set for Brody.\n\nAmrik raises a glass. 'Let me try this warning one more time.'",
+      "secrets": "The room is a repeating execution, not a conventional fight. If the party attacks Amrik, narrate the executioner's blade falling and reset them immediately at the table. Do this only once before revealing alternative routes. Amrik is an echo, not the real man, and Vhalrix wants the party to waste time fighting him.\n\nBrody's empty chair is the important detail. On escape it falls backward, revealing his silhouette being dragged through a door of fire.",
+      "notes": "AMRIK'S WARNING\nState plainly that the Vanthampurs have captured them, their mockery is going to get someone killed, and there will not be another warning. Invite the players to describe what they remember.\n\nESCAPE OPTIONS\n• Listen until Amrik finishes; the door unlocks.\n• Steal the executioner's keys: DC 14 Sleight of Hand.\n• Dax or Ori identifies and disrupts the repeating script: DC 14 Investigation, Insight, or psionic approach.\n• Break the room's supports: DC 17 Athletics or 15 damage to two pillars.\n• If Jon attends, he can tear the genuinely barred gate from the wall with DC 20 Athletics. Another character may help.\n• The Unwritten sees that Amrik casts no reflection; walking through the reflection exits the loop.\n\nDo not require apology or confession. The point is to remember the consequence and refuse Vhalrix's script.\n\nREWARD — TRUTH OF THE WARNING\nThe Vanthampurs captured the party. Amrik warned them. Brody died after he and Ori refused to take the danger seriously. In the finale, surrender the token to convert one successful attack against a party member into a miss."
+    },
+    {
+      "key": "ledger-dead",
+      "title": "The Ledger of the Dead",
+      "estimatedMinutes": 20,
+      "purpose": "Give Morn and Dax optional emotional beats, reveal Brody, and let Brody's player experience both characters before choosing.",
+      "readAloud": "The dining room opens onto a battlefield beneath a colorless sky. Thousands of shields stand upright in the mud. Each bears the name of someone its owner failed to save.\n\nMorn recognizes soldiers from another life. Dax finds one shield with no name—only the print of a Flaming Fist boot. Korrath finds one shield bearing two names.\n\nBRODY ‘BRO’ BROHAN\nKORRATH DRAKENSCALE",
+      "secrets": "The nameless shield represents the civilian Dax saw during reconnaissance; their ultimate fate remains unknown, leaving a future campaign thread rather than inventing a death. Morn's failed soldiers do not accuse him. Vhalrix wants him to accuse himself.\n\nBrody does not know whether he is a soul, a preserved memory, or a possibility made real by the shield. He knows he is himself and wants to live. He will not demand Korrath's sacrifice.",
+      "notes": "BRODY'S OPENING\n'I don't know if I'm a soul, a memory, or something this place made because none of you knew what to do with my death. But I know I'm still me.'\n\nTO KORRATH\n'I want out. I'm not going to lie about that. But I don't need you to die just because I did.'\n\nSTABILIZING BRODY\nMorn's mysterious remedy, a healing spell, a potion, or a donated Hit Die stabilizes Brody. Do not let a missing resource block the reveal. Once stabilized, add Brody's Echo from the final encounter. Brody and Korrath share one turn during the finale: the player chooses which one acts each round.\n\nBRODY'S ECHO ACTIONS\nSpeed 30 ft. Greataxe: +6 to hit, 1d12 + 4 slashing. Reckless Attack. Rage twice: +2 melee damage and resistance to bludgeoning, piercing, and slashing damage.\n\nGive the player a few minutes to inhabit Brody again, but do not present the final trade yet."
+    },
+    {
+      "key": "shield-crucible",
+      "title": "The Shield's Crucible",
+      "estimatedMinutes": 45,
+      "purpose": "Pay off the recovered Truths in a mobile final battle, defeat Vhalrix, and reclaim the stolen shield.",
+      "readAloud": "The battlefield tears down its center. The road to Candlekeep rises from the wound in broken slabs, suspended over fire. At its far end hangs the stolen shield, bound in chains made from tavern song, bathhouse bone, and an executioner's warning.\n\nWrapped around it is a many-limbed demon chewing through metal that screams with every bite. Vhalrix looks up with your memories running like blood from its mouth.\n\n'You have carried this prison long enough,' it says. 'Let me show you what it was teaching you to become.'",
+      "secrets": "Vhalrix is trying to consume the imprisoned intelligence, not release it. The shield will whisper useful tactical advice but always frame itself as the party's indispensable ally. Do not reveal its full identity unless that matches the campaign's established knowledge.\n\nAt half HP, Brody's chains break and his Echo joins initiative. If Dax earned the Broken Fist, one Memory Husk resembles a Flaming Fist enforcer. Dax may crush the token to destroy it or break a restraint on an ally.",
+      "notes": "Use the linked Shield's Crucible encounter. Add the active party with the Add party button before starting.\n\nSCALING\nVhalrix has 110 HP for four characters, 135 HP for five, or 160 HP for six or more. Use one legendary action per round for four characters and two for five or more. Begin with two Memory Husks; duplicate one if six or more characters attend.\n\nVHALRIX ACTIONS\nSpeed 40 ft., climb 40 ft. Saves: Dex +6, Con +7, Wis +5. Resistance to fire, cold, lightning, and psychic damage. Advantage on saves against spells and magical effects.\nMultiattack: two Rending Claws.\nRending Claw: +7 to hit, reach 10 ft., 2d6 + 4 slashing plus 1d6 psychic.\nStolen Memory, recharge 5–6: 30-foot cone, DC 14 Wisdom save, 4d8 psychic damage on failure or half on success. A failed creature cannot take reactions until its next turn.\nLegendary — Scuttle: move half speed without opportunity attacks.\nLegendary — Claw: make one Rending Claw.\nLegendary — Rewrite Failure, costs two: one creature makes DC 14 Wisdom save or has disadvantage on its next attack or save.\n\nMEMORY HUSK ACTIONS\nSpeed 30 ft. +4 to hit, 1d8 + 2 slashing. Their appearance should echo earlier enemies, victims, or a Flaming Fist enforcer.\n\nINITIATIVE 20 MEMORY HAZARDS\nRotate rather than roll.\n• Elfsong becomes deafening: DC 14 Wisdom or frightened until next round. Truth of the Song cancels it for everyone.\n• Bathhouse hands emerge: DC 14 Strength or Dexterity or restrained until using an action to escape.\n• Vanthampur chains strike: +6 to hit, 2d8 force and pull 10 feet. Truth of the Warning can negate the hit.\nTruth of the Dead triggers when someone would fall.\n\nWhen Vhalrix dies, it vomits the shield onto the road and the realm begins collapsing."
+    },
+    {
+      "key": "one-story-leaves",
+      "title": "One Story Leaves",
+      "estimatedMinutes": 15,
+      "purpose": "Give Brody and Korrath's player a clear, private, consequential choice and return the campaign to the road to Candlekeep.",
+      "readAloud": "The shield strikes the broken road with a sound like a prison door closing. Beyond it, daylight opens onto the road to Candlekeep. One by one, your companions become solid beneath that distant sky.\n\nBrody and Korrath do not. Between them stretches a single shadow. The realm has made space for one continuing story, and the doorway will not carry both.",
+      "secrets": "The party cannot solve this with a spell, check, or vote. Brody's restored existence occupies the same place in the realm's story that it assigned to Korrath. Only one can return now. The one who remains is not erased or destroyed; they become the warden of the broken pocket realm and may communicate through the shield or become the subject of a later rescue.\n\nThe opportunity is the surprise. The consequence is not. Explain both outcomes privately before asking the player to choose.",
+      "notes": "Take Brody and Korrath's player aside or give them two written cards. Do not let the party vote or pressure them.\n\nRETURN AS KORRATH\nBrody accepts that his story ended and gives Korrath a fragment of his fury. Optional boon: once per long rest, Korrath gains advantage on one Strength check or melee attack.\n\nRETURN AS BRODY\nBrody returns rebuilt at level 5. Korrath remains within the shield as Warden of the Broken Road, alive and potentially recoverable. Preserve Korrath's sheet.\n\nIF THE PLAYER NEEDS BRODY'S FINAL LINE\n'I wanted another chance. I didn't want it to become another thing this place made you carry.'\n\nENDING\nThe survivors awaken on the road with the shield recovered and Candlekeep finally drawing closer. The shield whispers: 'Now that we remember one another, perhaps you are finally ready to learn what I am.'\n\nRestate the mission plainly before ending: reach Candlekeep, learn what the shield is, and understand why forces from below want it."
+    }
+  ],
+  "encounters": [
+    {
+      "title": "Bathhouse of the Unraised",
+      "sceneKey": "bathhouse-unraised",
+      "combatants": [
+        {
+          "name": "Ossuary Brute",
+          "kind": "enemy",
+          "armorClass": 14,
+          "maxHp": 60
+        },
+        {
+          "name": "Unraised Dead 1",
+          "kind": "enemy",
+          "armorClass": 12,
+          "maxHp": 1
+        },
+        {
+          "name": "Unraised Dead 2",
+          "kind": "enemy",
+          "armorClass": 12,
+          "maxHp": 1
+        },
+        {
+          "name": "Unraised Dead 3",
+          "kind": "enemy",
+          "armorClass": 12,
+          "maxHp": 1
+        },
+        {
+          "name": "Unraised Dead 4",
+          "kind": "enemy",
+          "armorClass": 12,
+          "maxHp": 1
+        }
+      ]
+    },
+    {
+      "title": "The Shield's Crucible",
+      "sceneKey": "shield-crucible",
+      "combatants": [
+        {
+          "name": "Vhalrix the Recall-Eater",
+          "kind": "enemy",
+          "armorClass": 16,
+          "maxHp": 135
+        },
+        {
+          "name": "Memory Husk 1",
+          "kind": "enemy",
+          "armorClass": 13,
+          "maxHp": 10
+        },
+        {
+          "name": "Memory Husk 2",
+          "kind": "enemy",
+          "armorClass": 13,
+          "maxHp": 10
+        },
+        {
+          "name": "Brody's Echo",
+          "kind": "ally",
+          "armorClass": 15,
+          "maxHp": 40
+        }
+      ]
+    }
+  ]
+}
