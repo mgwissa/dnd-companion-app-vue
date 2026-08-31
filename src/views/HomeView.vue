@@ -218,14 +218,14 @@ watch(
           <h2>DM hub</h2>
           <p>Prepare the next move without putting the surprise on the table.</p>
         </div>
-        <RouterLink to="/notes" class="session-action session-action--primary">Open private notes</RouterLink>
+        <RouterLink to="/dm" class="session-action session-action--primary">Open DM screen</RouterLink>
       </div>
       <div class="dm-grid">
         <article class="dm-card dm-card--prep">
           <span class="dm-card-kicker">Preparation desk</span>
           <h3>What needs attention?</h3>
           <p>Keep private encounter plans, reveals, and reminders close while the party works through the story.</p>
-          <RouterLink to="/notes" class="dm-card-link">Write a DM note ↗</RouterLink>
+          <RouterLink to="/dm" class="dm-card-link">Open the run sheet ↗</RouterLink>
         </article>
         <article class="dm-card">
           <span class="dm-card-kicker">Private notes</span>

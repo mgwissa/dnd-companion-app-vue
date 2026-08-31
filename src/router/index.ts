@@ -8,6 +8,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     requiresCampaign?: boolean
+    requiresOwner?: boolean
     guestOnly?: boolean
   }
 }
@@ -73,6 +74,12 @@ const router = createRouter({
       component: () => import('@/views/HealerView.vue'),
       meta: { requiresAuth: true, requiresCampaign: true },
     },
+    {
+      path: '/dm',
+      name: 'dm-workspace',
+      component: () => import('@/views/DmWorkspaceView.vue'),
+      meta: { requiresAuth: true, requiresCampaign: true, requiresOwner: true },
+    },
   ],
 })
 
@@ -113,12 +120,19 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresCampaign && auth.isAuthenticated) {
     const campaignStore = useCampaignStore()
+    if (campaignStore.campaigns.length === 0) {
+      await campaignStore.fetchCampaigns()
+    }
     if (!campaignStore.activeCampaignId) {
-      if (campaignStore.campaigns.length === 0) {
-        await campaignStore.fetchCampaigns()
-      }
       if (!campaignStore.activeCampaignId) {
         return { name: 'campaigns' }
+      }
+    }
+
+    if (to.meta.requiresOwner) {
+      const activeCampaign = campaignStore.activeCampaign
+      if (!activeCampaign || activeCampaign.created_by !== auth.user?.id) {
+        return { name: 'home' }
       }
     }
   }

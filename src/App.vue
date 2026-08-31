@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import ThemeToggle from './components/ThemeToggle.vue'
 import DndToast from './components/DndToast.vue'
 import { getToastState, showToast } from './composables/useToast'
@@ -16,6 +16,9 @@ const auth = useAuthStore()
 const campaignStore = useCampaignStore()
 const router = useRouter()
 const menuOpen = ref(false)
+const canUseDmWorkspace = computed(
+  () => Boolean(auth.user && campaignStore.activeCampaign?.created_by === auth.user.id),
+)
 
 onMounted(() => {
   if (auth.isAuthenticated) campaignStore.fetchCampaigns()
@@ -117,6 +120,7 @@ async function handleLogout() {
             <RouterLink to="/links" class="nav-link" @click="menuOpen = false">Links</RouterLink>
             <RouterLink to="/characters" class="nav-link" @click="menuOpen = false">Characters</RouterLink>
             <RouterLink to="/healer" class="nav-link" @click="menuOpen = false">Healer's Kit</RouterLink>
+            <RouterLink v-if="canUseDmWorkspace" to="/dm" class="nav-link nav-link--dm" @click="menuOpen = false">DM Screen</RouterLink>
             <button type="button" class="nav-link nav-btn" @click="handleLogout(); menuOpen = false">
               Logout
             </button>
@@ -214,6 +218,10 @@ async function handleLogout() {
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
+}
+
+.nav-link--dm {
+  color: #f5c66a;
 }
 
 .campaign-select {
