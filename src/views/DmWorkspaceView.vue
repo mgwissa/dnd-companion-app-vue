@@ -48,6 +48,7 @@ interface DmEncounter {
   campaign_id: string
   created_by: string
   title: string
+  notes: string
   is_active: boolean
   round: number
   turn_index: number
@@ -106,6 +107,15 @@ interface ContentPackScene {
 interface ContentPackEncounter {
   title: string
   sceneKey: string
+  notes: string
+  combatants: ContentPackCombatant[]
+}
+
+interface EncounterJsonPayload {
+  version: 1
+  title: string
+  sceneId: string | null
+  notes: string
   combatants: ContentPackCombatant[]
 }
 
@@ -169,6 +179,11 @@ const importError = ref('')
 const importing = ref(false)
 const loadingStarterPack = ref(false)
 const exporting = ref(false)
+const encounterJsonDialogOpen = ref(false)
+const encounterJsonText = ref('')
+const encounterJsonPreview = ref<EncounterJsonPayload | null>(null)
+const encounterJsonError = ref('')
+const encounterJsonSaving = ref(false)
 
 const campaignId = computed(() => campaignStore.activeCampaignId)
 const campaignName = computed(() => campaignStore.activeCampaign?.name ?? 'Campaign')
@@ -960,6 +975,85 @@ function packNumber(record: Record<string, unknown>, key: string, fallback: numb
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+function parsePackedCombatants(
+  value: unknown,
+  context: string,
+  allowedKinds: CombatantKind[] = ['pc', 'enemy', 'ally'],
+): ContentPackCombatant[] {
+  if (!Array.isArray(value)) throw new Error(`${context} must be a JSON array.`)
+  return value.map((rawCombatant, combatantIndex): ContentPackCombatant => {
+    if (!isRecord(rawCombatant)) {
+      throw new Error(`Combatant ${combatantIndex + 1} in ${context} is not valid.`)
+    }
+    const name = packString(rawCombatant, 'name').trim()
+    if (!name) throw new Error(`Combatant ${combatantIndex + 1} in ${context} needs a name.`)
+    const rawKind = packString(rawCombatant, 'kind', 'enemy') as CombatantKind
+    if (!allowedKinds.includes(rawKind)) {
+      throw new Error(`Combatant “${name}” has an unsupported kind.`)
+    }
+    for (const field of ['maxHp', 'currentHp', 'tempHp'] as const) {
+      if (field in rawCombatant && typeof rawCombatant[field] !== 'number') {
+        throw new Error(`Combatant “${name}” needs an integer for ${field}.`)
+      }
+    }
+    if ('conditions' in rawCombatant && !Array.isArray(rawCombatant.conditions)) {
+      throw new Error(`Combatant “${name}” needs an array for conditions.`)
+    }
+    const conditions = Array.isArray(rawCombatant.conditions) ? rawCombatant.conditions : []
+    if (!conditions.every((condition) => typeof condition === 'string')) {
+      throw new Error(`Every condition for “${name}” must be text.`)
+    }
+    const maxHp = Math.max(0, packNumber(rawCombatant, 'maxHp', 1))
+    const initiative = rawCombatant.initiative
+    const armorClass = rawCombatant.armorClass
+    const numericFields = [
+      ['initiative', initiative],
+      ['armorClass', armorClass],
+      ['maxHp', maxHp],
+      ['currentHp', packNumber(rawCombatant, 'currentHp', maxHp)],
+      ['tempHp', packNumber(rawCombatant, 'tempHp', 0)],
+    ] as const
+    for (const [field, number] of numericFields) {
+      if (number !== null && number !== undefined && !Number.isInteger(number)) {
+        throw new Error(`Combatant “${name}” needs an integer for ${field}.`)
+      }
+    }
+    return {
+      name,
+      kind: rawKind,
+      initiative: typeof initiative === 'number' ? initiative : null,
+      armorClass: typeof armorClass === 'number' ? Math.max(0, armorClass) : null,
+      maxHp,
+      currentHp: Math.max(0, packNumber(rawCombatant, 'currentHp', maxHp)),
+      tempHp: Math.max(0, packNumber(rawCombatant, 'tempHp', 0)),
+      conditions,
+    }
+  })
+}
+
+function parseEncounterJson(value: unknown): EncounterJsonPayload {
+  if (!isRecord(value)) throw new Error('The encounter JSON must be an object.')
+  if (value.version !== 1) throw new Error('Only encounter JSON version 1 is supported.')
+  const title = packString(value, 'title').trim()
+  if (!title) throw new Error('The encounter needs a title.')
+  if (typeof value.notes !== 'string') throw new Error('Encounter notes must be text.')
+  const rawSceneId = value.sceneId
+  if (rawSceneId !== null && typeof rawSceneId !== 'string') {
+    throw new Error('sceneId must be a scene ID or null.')
+  }
+  const sceneId = typeof rawSceneId === 'string' && rawSceneId.trim() ? rawSceneId.trim() : null
+  if (sceneId && !scenes.value.some((scene) => scene.id === sceneId)) {
+    throw new Error('sceneId does not belong to a scene in this run sheet.')
+  }
+  return {
+    version: 1,
+    title,
+    sceneId,
+    notes: packString(value, 'notes'),
+    combatants: parsePackedCombatants(value.combatants ?? [], 'this encounter', ['enemy', 'ally']),
+  }
+}
+
 function parseContentPack(value: unknown): DmContentPack {
   if (!isRecord(value)) throw new Error('The content pack must be a JSON object.')
   if (value.version !== 1) throw new Error('Only content pack version 1 is supported.')
@@ -1000,45 +1094,16 @@ function parseContentPack(value: unknown): DmContentPack {
     if (sceneKey && !keys.has(sceneKey)) {
       throw new Error(`Encounter “${encounterTitle}” references the unknown scene “${sceneKey}”.`)
     }
-    const rawCombatants = rawEncounter.combatants ?? []
-    if (!Array.isArray(rawCombatants)) {
-      throw new Error(`Combatants for “${encounterTitle}” must be a JSON array.`)
-    }
-    const parsedCombatants = rawCombatants.map(
-      (rawCombatant, combatantIndex): ContentPackCombatant => {
-        if (!isRecord(rawCombatant)) {
-          throw new Error(`Combatant ${combatantIndex + 1} in “${encounterTitle}” is not valid.`)
-        }
-        const name = packString(rawCombatant, 'name').trim()
-        if (!name) {
-          throw new Error(`Combatant ${combatantIndex + 1} in “${encounterTitle}” needs a name.`)
-        }
-        const rawKind = packString(rawCombatant, 'kind', 'enemy')
-        if (!['pc', 'enemy', 'ally'].includes(rawKind)) {
-          throw new Error(`Combatant “${name}” has an unsupported kind.`)
-        }
-        const conditions = Array.isArray(rawCombatant.conditions)
-          ? rawCombatant.conditions.filter(
-              (condition): condition is string => typeof condition === 'string',
-            )
-          : []
-        const maxHp = Math.max(0, packNumber(rawCombatant, 'maxHp', 1))
-        return {
-          name,
-          kind: rawKind as CombatantKind,
-          initiative: typeof rawCombatant.initiative === 'number' ? rawCombatant.initiative : null,
-          armorClass:
-            typeof rawCombatant.armorClass === 'number'
-              ? Math.max(0, rawCombatant.armorClass)
-              : null,
-          maxHp,
-          currentHp: Math.max(0, packNumber(rawCombatant, 'currentHp', maxHp)),
-          tempHp: Math.max(0, packNumber(rawCombatant, 'tempHp', 0)),
-          conditions,
-        }
-      },
+    const parsedCombatants = parsePackedCombatants(
+      rawEncounter.combatants ?? [],
+      `“${encounterTitle}”`,
     )
-    return { title: encounterTitle, sceneKey, combatants: parsedCombatants }
+    return {
+      title: encounterTitle,
+      sceneKey,
+      notes: packString(rawEncounter, 'notes'),
+      combatants: parsedCombatants,
+    }
   })
 
   return {
@@ -1050,6 +1115,94 @@ function parseContentPack(value: unknown): DmContentPack {
     },
     scenes,
     encounters,
+  }
+}
+
+function encounterJsonFor(encounter: DmEncounter): EncounterJsonPayload {
+  return {
+    version: 1,
+    title: encounter.title,
+    sceneId: encounter.scene_id,
+    notes: encounter.notes ?? '',
+    combatants: combatants.value
+      .filter(
+        (combatant) =>
+          combatant.encounter_id === encounter.id &&
+          combatant.kind !== 'pc' &&
+          !combatant.source_character_id,
+      )
+      .map((combatant) => ({
+        name: combatant.name,
+        kind: combatant.kind,
+        initiative: combatant.initiative,
+        armorClass: combatant.armor_class,
+        maxHp: combatant.max_hp,
+        currentHp: combatant.current_hp,
+        tempHp: combatant.temp_hp,
+        conditions: [...combatant.conditions],
+      })),
+  }
+}
+
+function openEncounterJsonEditor() {
+  if (!selectedEncounter.value) return
+  const payload = encounterJsonFor(selectedEncounter.value)
+  encounterJsonText.value = JSON.stringify(payload, null, 2)
+  encounterJsonPreview.value = payload
+  encounterJsonError.value = ''
+  encounterJsonDialogOpen.value = true
+}
+
+function closeEncounterJsonEditor() {
+  if (encounterJsonSaving.value) return
+  encounterJsonDialogOpen.value = false
+}
+
+function validateEncounterJson() {
+  encounterJsonError.value = ''
+  encounterJsonPreview.value = null
+  try {
+    encounterJsonPreview.value = parseEncounterJson(JSON.parse(encounterJsonText.value) as unknown)
+  } catch (error) {
+    encounterJsonError.value =
+      error instanceof Error ? error.message : 'The encounter JSON could not be read.'
+  }
+}
+
+function markEncounterJsonDirty() {
+  encounterJsonPreview.value = null
+  encounterJsonError.value = ''
+}
+
+async function saveEncounterJson() {
+  if (!selectedEncounter.value) return
+  validateEncounterJson()
+  if (!encounterJsonPreview.value) return
+  encounterJsonSaving.value = true
+  const encounterId = selectedEncounter.value.id
+  try {
+    const { error } = await supabase.rpc('update_dm_encounter_from_json', {
+      p_encounter_id: encounterId,
+      p_payload: encounterJsonPreview.value,
+    })
+    if (error) throw error
+    await loadWorkspaceData()
+    selectedEncounterId.value = encounterId
+    encounterJsonDialogOpen.value = false
+    showToast('Encounter JSON saved', 'success')
+  } catch (error) {
+    console.warn('Failed to save encounter JSON', error)
+    const message =
+      error instanceof Error
+        ? error.message
+        : isRecord(error) && typeof error.message === 'string'
+          ? error.message
+          : 'The encounter JSON could not be saved.'
+    encounterJsonError.value = /update_dm_encounter_from_json|schema cache/i.test(message)
+      ? 'Apply migration 010_edit_dm_encounter_json.sql, then try again.'
+      : message
+  } finally {
+    encounterJsonSaving.value = false
   }
 }
 
@@ -1183,6 +1336,7 @@ async function exportContentPack() {
       (encounter): ContentPackEncounter => ({
         title: encounter.title,
         sceneKey: encounter.scene_id ? (sceneKeys.get(encounter.scene_id) ?? '') : '',
+        notes: encounter.notes ?? '',
         combatants: combatants.value
           .filter(
             (combatant) =>
@@ -1754,6 +1908,14 @@ watch(campaignId, initialize)
               </div>
               <div class="toolbar-actions">
                 <button
+                  v-if="mode === 'prep'"
+                  class="button button--quiet"
+                  type="button"
+                  @click="openEncounterJsonEditor"
+                >
+                  Edit JSON
+                </button>
+                <button
                   v-if="!selectedEncounter.is_active"
                   class="button button--live"
                   type="button"
@@ -1780,6 +1942,11 @@ watch(campaignId, initialize)
                 </button>
               </div>
             </div>
+
+            <details v-if="selectedEncounter.notes" class="encounter-reference">
+              <summary>Encounter reference</summary>
+              <pre>{{ selectedEncounter.notes }}</pre>
+            </details>
 
             <div class="combatant-add-row">
               <button class="button button--quiet" type="button" @click="addPartyToEncounter">
@@ -2057,6 +2224,104 @@ watch(campaignId, initialize)
           >
             {{ importing ? 'Importing everything...' : 'Import run sheet' }}
           </button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="encounterJsonDialogOpen"
+      class="import-backdrop"
+      @click.self="closeEncounterJsonEditor"
+    >
+      <section
+        class="import-dialog encounter-json-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="encounter-json-dialog-title"
+      >
+        <header class="import-dialog-header">
+          <div>
+            <span class="panel-kicker">Prep data</span>
+            <h2 id="encounter-json-dialog-title">Edit encounter JSON</h2>
+            <p>
+              Update the reference notes, scene link, enemies, and allies together. Roster-linked
+              player characters are preserved automatically.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close encounter editor"
+            @click="closeEncounterJsonEditor"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="encounter-json-body">
+          <label class="import-json-field">
+            <span>Encounter payload</span>
+            <textarea
+              v-model="encounterJsonText"
+              rows="20"
+              spellcheck="false"
+              aria-label="Encounter JSON"
+              @input="markEncounterJsonDirty"
+            ></textarea>
+          </label>
+
+          <aside class="encounter-json-guide">
+            <span class="panel-kicker">Scene IDs</span>
+            <p>Use one of these values for <code>sceneId</code>, or use <code>null</code>.</p>
+            <dl>
+              <template v-for="scene in orderedScenes" :key="scene.id">
+                <dt>{{ scene.title }}</dt>
+                <dd>{{ scene.id }}</dd>
+              </template>
+            </dl>
+            <p>
+              Combatant kinds may be <code>enemy</code> or <code>ally</code>. Add the live party
+              from the combat desk instead of putting PCs in this JSON.
+            </p>
+          </aside>
+        </div>
+
+        <p v-if="encounterJsonError" class="import-error" role="alert">
+          {{ encounterJsonError }}
+        </p>
+        <p v-else-if="encounterJsonPreview" class="encounter-json-valid" role="status">
+          Valid JSON · {{ encounterJsonPreview.combatants.length }} non-player combatants ·
+          {{ encounterJsonPreview.notes ? 'reference included' : 'no reference notes' }}
+        </p>
+
+        <footer class="import-dialog-footer">
+          <button
+            class="button button--quiet"
+            type="button"
+            :disabled="encounterJsonSaving"
+            @click="closeEncounterJsonEditor"
+          >
+            Cancel
+          </button>
+          <div class="encounter-json-footer-actions">
+            <button
+              class="button button--quiet"
+              type="button"
+              :disabled="encounterJsonSaving"
+              @click="validateEncounterJson"
+            >
+              Validate JSON
+            </button>
+            <button
+              class="button button--primary"
+              type="button"
+              :disabled="encounterJsonSaving"
+              @click="saveEncounterJson"
+            >
+              {{ encounterJsonSaving ? 'Saving encounter...' : 'Save encounter' }}
+            </button>
+          </div>
         </footer>
       </section>
     </div>
@@ -3185,6 +3450,34 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.encounter-reference {
+  margin-bottom: 0.7rem;
+  border: 1px solid rgba(184, 134, 53, 0.24);
+  border-radius: 8px;
+  background: rgba(184, 134, 53, 0.07);
+}
+
+.encounter-reference summary {
+  padding: 0.65rem 0.8rem;
+  color: var(--dnd-accent-2);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.encounter-reference pre {
+  max-height: 24rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0 0.8rem 0.8rem;
+  color: var(--dnd-ink);
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .combatant-add-row {
   justify-content: space-between;
   padding: 0.65rem;
@@ -3595,6 +3888,76 @@ textarea:focus {
   padding-top: 1rem;
 }
 
+.encounter-json-dialog {
+  width: min(1040px, 100%);
+}
+
+.encounter-json-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(230px, 0.55fr);
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.encounter-json-body textarea {
+  width: 100%;
+  min-height: 32rem;
+  resize: vertical;
+}
+
+.encounter-json-guide {
+  padding: 0.8rem;
+  border-radius: 8px;
+  background: var(--dnd-input-bg);
+}
+
+.encounter-json-guide p {
+  margin: 0.5rem 0 0.8rem;
+  color: var(--dnd-muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.encounter-json-guide code {
+  color: var(--dnd-ink);
+}
+
+.encounter-json-guide dl {
+  max-height: 21rem;
+  overflow: auto;
+  margin: 0;
+}
+
+.encounter-json-guide dt {
+  margin-top: 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.encounter-json-guide dd {
+  overflow-wrap: anywhere;
+  margin: 0.2rem 0 0;
+  color: var(--dnd-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.58rem;
+}
+
+.encounter-json-valid {
+  margin: 0.8rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 7px;
+  background: rgba(78, 139, 112, 0.1);
+  color: #37694f;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.encounter-json-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
 :global(.dark) .panel,
 :global(.dark) .state-card,
 :global(.dark) .setup-card,
@@ -3648,6 +4011,14 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
+  .encounter-json-body {
+    grid-template-columns: 1fr;
+  }
+
+  .encounter-json-body textarea {
+    min-height: 24rem;
+  }
+
   .dm-page {
     padding: 0.75rem;
   }
