@@ -177,6 +177,7 @@ const importPack = ref<DmContentPack | null>(null)
 const importSourceName = ref('')
 const importError = ref('')
 const importing = ref(false)
+const importPurpose = ref<'create' | 'replace'>('create')
 const loadingStarterPack = ref(false)
 const exporting = ref(false)
 const encounterJsonDialogOpen = ref(false)
@@ -1162,7 +1163,11 @@ function validateEncounterJson() {
   encounterJsonError.value = ''
   encounterJsonPreview.value = null
   try {
-    encounterJsonPreview.value = parseEncounterJson(JSON.parse(encounterJsonText.value) as unknown)
+    const value = JSON.parse(encounterJsonText.value) as unknown
+    if (isRecord(value) && isRecord(value.run) && Array.isArray(value.scenes)) {
+      throw new Error('This is complete run-sheet JSON. Use “Edit complete JSON” in Run settings.')
+    }
+    encounterJsonPreview.value = parseEncounterJson(value)
   } catch (error) {
     encounterJsonError.value =
       error instanceof Error ? error.message : 'The encounter JSON could not be read.'
@@ -1215,6 +1220,7 @@ function resetImporter() {
 
 function openImporter() {
   resetImporter()
+  importPurpose.value = 'create'
   importDialogOpen.value = true
 }
 
@@ -1223,7 +1229,15 @@ function closeImporter() {
   importDialogOpen.value = false
 }
 
-function previewImportText(sourceName = 'Pasted JSON') {
+function markImportDirty() {
+  importPack.value = null
+  importSourceName.value = ''
+  importError.value = ''
+}
+
+function previewImportText(
+  sourceName = importPurpose.value === 'replace' ? 'Edited run JSON' : 'Pasted JSON',
+) {
   importError.value = ''
   importPack.value = null
   try {
@@ -1237,6 +1251,7 @@ function previewImportText(sourceName = 'Pasted JSON') {
 async function loadStarterPack() {
   importDialogOpen.value = true
   resetImporter()
+  importPurpose.value = 'create'
   loadingStarterPack.value = true
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}content-packs/road-to-candlekeep.json`)
@@ -1262,16 +1277,29 @@ async function onContentPackFile(event: Event) {
 
 async function importContentPack() {
   if (!importPack.value || !campaignId.value) return
+  if (importPurpose.value === 'replace' && !run.value) return
   importing.value = true
   importError.value = ''
   try {
-    const { error } = await supabase.rpc('import_dm_run_pack', {
-      p_campaign_id: campaignId.value,
-      p_pack: importPack.value,
-    })
+    const result =
+      importPurpose.value === 'replace'
+        ? await supabase.rpc('replace_dm_run_pack', {
+            p_run_id: run.value!.id,
+            p_pack: importPack.value,
+          })
+        : await supabase.rpc('import_dm_run_pack', {
+            p_campaign_id: campaignId.value,
+            p_pack: importPack.value,
+          })
+    const { error } = result
     if (error) throw error
     importDialogOpen.value = false
-    showToast(`Imported “${importPack.value.run.title}”`, 'success')
+    showToast(
+      importPurpose.value === 'replace'
+        ? `Saved “${importPack.value.run.title}”`
+        : `Imported “${importPack.value.run.title}”`,
+      'success',
+    )
     await initialize()
   } catch (error) {
     console.warn('Failed to import content pack', error)
@@ -1281,9 +1309,11 @@ async function importContentPack() {
         : isRecord(error) && typeof error.message === 'string'
           ? error.message
           : 'The content pack could not be imported.'
-    importError.value = /import_dm_run_pack|schema cache/i.test(message)
-      ? 'Apply migration 009_import_dm_run_pack.sql, then try again.'
-      : message
+    importError.value = /replace_dm_run_pack|schema cache/i.test(message)
+      ? 'Apply migration 011_replace_dm_run_pack.sql, then try again.'
+      : /import_dm_run_pack/i.test(message)
+        ? 'Apply migrations 009 and 010, then try again.'
+        : message
   } finally {
     importing.value = false
   }
@@ -1297,76 +1327,99 @@ function contentPackFilename(title: string) {
   return `${slug || 'dm-run-sheet'}.json`
 }
 
+async function buildContentPack(): Promise<DmContentPack> {
+  if (!run.value) throw new Error('There is no run sheet to export.')
+  let overview = 'Exported DM run sheet.'
+  if (run.value.log_note_id) {
+    const { data } = await supabase
+      .from('notes')
+      .select('body')
+      .eq('id', run.value.log_note_id)
+      .single()
+    if (typeof data?.body === 'string') {
+      overview = data.body.replace(/^# .*\r?\n+/, '').trim()
+    }
+  }
+
+  const sceneKeys = new Map<string, string>()
+  const packedScenes = orderedScenes.value.map((scene, index): ContentPackScene => {
+    const slug = scene.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const key = `${slug || 'scene'}-${index + 1}`
+    sceneKeys.set(scene.id, key)
+    return {
+      key,
+      title: scene.title,
+      estimatedMinutes: scene.estimated_minutes,
+      purpose: scene.purpose,
+      readAloud: scene.read_aloud,
+      secrets: scene.secrets,
+      notes: scene.notes,
+    }
+  })
+
+  const packedEncounters = encounters.value.map(
+    (encounter): ContentPackEncounter => ({
+      title: encounter.title,
+      sceneKey: encounter.scene_id ? (sceneKeys.get(encounter.scene_id) ?? '') : '',
+      notes: encounter.notes ?? '',
+      combatants: combatants.value
+        .filter(
+          (combatant) =>
+            combatant.encounter_id === encounter.id &&
+            combatant.kind !== 'pc' &&
+            !combatant.source_character_id,
+        )
+        .map((combatant) => ({
+          name: combatant.name,
+          kind: combatant.kind,
+          initiative: combatant.initiative,
+          armorClass: combatant.armor_class,
+          maxHp: combatant.max_hp,
+          currentHp: combatant.current_hp,
+          tempHp: combatant.temp_hp,
+          conditions: [...combatant.conditions],
+        })),
+    }),
+  )
+
+  return {
+    version: 1,
+    run: {
+      title: run.value.title,
+      plannedMinutes: run.value.planned_minutes,
+      overview,
+    },
+    scenes: packedScenes,
+    encounters: packedEncounters,
+  }
+}
+
+async function openRunJsonEditor() {
+  if (!run.value || run.value.status !== 'prep') {
+    showToast('Complete JSON can only replace a run that is still in prep', 'error')
+    return
+  }
+  importDialogOpen.value = true
+  resetImporter()
+  importPurpose.value = 'replace'
+  try {
+    const pack = await buildContentPack()
+    importText.value = JSON.stringify(pack, null, 2)
+    importPack.value = pack
+    importSourceName.value = 'Current prepared run'
+  } catch (error) {
+    importError.value = error instanceof Error ? error.message : 'The run JSON could not be built.'
+  }
+}
+
 async function exportContentPack() {
   if (!run.value) return
   exporting.value = true
   try {
-    let overview = 'Exported DM run sheet.'
-    if (run.value.log_note_id) {
-      const { data } = await supabase
-        .from('notes')
-        .select('body')
-        .eq('id', run.value.log_note_id)
-        .single()
-      if (typeof data?.body === 'string') {
-        overview = data.body.replace(/^# .*\r?\n+/, '').trim()
-      }
-    }
-
-    const sceneKeys = new Map<string, string>()
-    const packedScenes = orderedScenes.value.map((scene, index): ContentPackScene => {
-      const slug = scene.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-      const key = `${slug || 'scene'}-${index + 1}`
-      sceneKeys.set(scene.id, key)
-      return {
-        key,
-        title: scene.title,
-        estimatedMinutes: scene.estimated_minutes,
-        purpose: scene.purpose,
-        readAloud: scene.read_aloud,
-        secrets: scene.secrets,
-        notes: scene.notes,
-      }
-    })
-
-    const packedEncounters = encounters.value.map(
-      (encounter): ContentPackEncounter => ({
-        title: encounter.title,
-        sceneKey: encounter.scene_id ? (sceneKeys.get(encounter.scene_id) ?? '') : '',
-        notes: encounter.notes ?? '',
-        combatants: combatants.value
-          .filter(
-            (combatant) =>
-              combatant.encounter_id === encounter.id &&
-              combatant.kind !== 'pc' &&
-              !combatant.source_character_id,
-          )
-          .map((combatant) => ({
-            name: combatant.name,
-            kind: combatant.kind,
-            initiative: combatant.initiative,
-            armorClass: combatant.armor_class,
-            maxHp: combatant.max_hp,
-            currentHp: combatant.current_hp,
-            tempHp: combatant.temp_hp,
-            conditions: [...combatant.conditions],
-          })),
-      }),
-    )
-
-    const pack: DmContentPack = {
-      version: 1,
-      run: {
-        title: run.value.title,
-        plannedMinutes: run.value.planned_minutes,
-        overview,
-      },
-      scenes: packedScenes,
-      encounters: packedEncounters,
-    }
+    const pack = await buildContentPack()
     const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -1410,7 +1463,8 @@ watch(campaignId, initialize)
       <span class="state-icon" aria-hidden="true">⚙</span>
       <h1>DM workspace needs its migration</h1>
       <p>
-        Apply migrations <code>008</code> and <code>009</code> to Supabase, then refresh this page.
+        Apply migrations <code>008</code> through <code>011</code> to Supabase, then refresh this
+        page.
       </p>
     </section>
 
@@ -1650,6 +1704,14 @@ watch(campaignId, initialize)
           </div>
           <button class="button button--quiet button--block" type="button" @click="saveRunSettings">
             Save settings
+          </button>
+          <button
+            v-if="run.status === 'prep'"
+            class="button button--starter button--block"
+            type="button"
+            @click="openRunJsonEditor"
+          >
+            Edit complete JSON
           </button>
           <button
             class="button button--quiet button--block"
@@ -1913,7 +1975,7 @@ watch(campaignId, initialize)
                   type="button"
                   @click="openEncounterJsonEditor"
                 >
-                  Edit JSON
+                  Edit combat JSON
                 </button>
                 <button
                   v-if="!selectedEncounter.is_active"
@@ -2135,9 +2197,19 @@ watch(campaignId, initialize)
       >
         <header class="import-dialog-header">
           <div>
-            <span class="panel-kicker">Portable DM data</span>
-            <h2 id="import-dialog-title">Import a content pack</h2>
-            <p>Preview the complete run sheet before anything is added to this campaign.</p>
+            <span class="panel-kicker">
+              {{ importPurpose === 'replace' ? 'Full run source' : 'Portable DM data' }}
+            </span>
+            <h2 id="import-dialog-title">
+              {{ importPurpose === 'replace' ? 'Edit complete run JSON' : 'Import a content pack' }}
+            </h2>
+            <p>
+              {{
+                importPurpose === 'replace'
+                  ? 'Edit and validate the entire prepared run: settings, scenes, encounters, and combatants.'
+                  : 'Preview the complete run sheet before anything is added to this campaign.'
+              }}
+            </p>
           </div>
           <button type="button" aria-label="Close importer" @click="closeImporter">×</button>
         </header>
@@ -2145,6 +2217,7 @@ watch(campaignId, initialize)
         <div class="import-input-grid">
           <div class="import-source-actions">
             <button
+              v-if="importPurpose === 'create'"
               class="button button--starter button--block"
               type="button"
               :disabled="loadingStarterPack"
@@ -2158,15 +2231,22 @@ watch(campaignId, initialize)
             </label>
           </div>
           <label class="import-json-field">
-            <span>Or paste content-pack JSON</span>
+            <span>
+              {{
+                importPurpose === 'replace'
+                  ? 'Complete run-sheet JSON'
+                  : 'Or paste content-pack JSON'
+              }}
+            </span>
             <textarea
               v-model="importText"
               rows="8"
               spellcheck="false"
               placeholder='{ "version": 1, "run": { ... } }'
+              @input="markImportDirty"
             ></textarea>
             <button class="button button--quiet" type="button" @click="previewImportText()">
-              Preview pasted JSON
+              {{ importPurpose === 'replace' ? 'Validate changes' : 'Preview pasted JSON' }}
             </button>
           </label>
         </div>
@@ -2202,8 +2282,14 @@ watch(campaignId, initialize)
             </li>
           </ol>
           <p>
-            The run, private briefing, scenes, encounters, and non-player combatants will be added
-            together. Your active party remains dynamic.
+            <template v-if="importPurpose === 'replace'">
+              Saving replaces the prepared run together in one transaction. Campaign characters are
+              untouched, but PCs previously added to combat encounters must be added again.
+            </template>
+            <template v-else>
+              The run, private briefing, scenes, encounters, and non-player combatants will be added
+              together. Your active party remains dynamic.
+            </template>
           </p>
         </section>
 
@@ -2222,7 +2308,15 @@ watch(campaignId, initialize)
             :disabled="!importPack || importing"
             @click="importContentPack"
           >
-            {{ importing ? 'Importing everything...' : 'Import run sheet' }}
+            {{
+              importing
+                ? importPurpose === 'replace'
+                  ? 'Saving complete run...'
+                  : 'Importing everything...'
+                : importPurpose === 'replace'
+                  ? 'Replace prepared run'
+                  : 'Import run sheet'
+            }}
           </button>
         </footer>
       </section>
@@ -2244,7 +2338,7 @@ watch(campaignId, initialize)
         <header class="import-dialog-header">
           <div>
             <span class="panel-kicker">Prep data</span>
-            <h2 id="encounter-json-dialog-title">Edit encounter JSON</h2>
+            <h2 id="encounter-json-dialog-title">Edit combat encounter JSON</h2>
             <p>
               Update the reference notes, scene link, enemies, and allies together. Roster-linked
               player characters are preserved automatically.
