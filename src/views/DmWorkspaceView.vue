@@ -1450,6 +1450,15 @@ watch(campaignId, initialize)
 
 <template>
   <main class="dm-page">
+    <RouterLink
+      v-if="!loading && isDm"
+      :to="{ name: 'home' }"
+      class="dm-back-link"
+      aria-label="Return to the DM dashboard"
+    >
+      <span aria-hidden="true">←</span> DM dashboard
+    </RouterLink>
+
     <div v-if="loading" class="state-card">Opening the DM screen...</div>
 
     <section v-else-if="!isDm" class="state-card state-card--locked">
@@ -2427,6 +2436,35 @@ watch(campaignId, initialize)
   min-height: 70vh;
   padding: 1.5rem;
   color: var(--dnd-ink);
+}
+
+.dm-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  color: var(--dnd-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 0.15s ease;
+}
+
+.dm-back-link span {
+  font-size: 0.9rem;
+  transition: transform 0.15s ease;
+}
+
+.dm-back-link:hover,
+.dm-back-link:focus-visible {
+  color: var(--dnd-accent-2);
+}
+
+.dm-back-link:hover span,
+.dm-back-link:focus-visible span {
+  transform: translateX(-2px);
 }
 
 button,
