@@ -1248,10 +1248,10 @@ function previewImportText(
   }
 }
 
-async function loadStarterPack() {
+async function loadStarterPack(purpose: 'create' | 'replace' = 'create') {
   importDialogOpen.value = true
   resetImporter()
-  importPurpose.value = 'create'
+  importPurpose.value = purpose
   loadingStarterPack.value = true
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}content-packs/road-to-candlekeep.json`)
@@ -1508,7 +1508,7 @@ watch(campaignId, initialize)
           class="starter-pack-button"
           type="button"
           :disabled="loadingStarterPack"
-          @click="loadStarterPack"
+          @click="loadStarterPack()"
         >
           <span aria-hidden="true">✦</span>
           <span>
@@ -1651,19 +1651,19 @@ watch(campaignId, initialize)
               ></textarea>
             </label>
             <div class="field-row field-row--split">
-              <label class="field">
+              <label class="field scene-secrets-field">
                 <span>Secrets & clues</span>
                 <textarea
                   v-model="sceneForm.secrets"
-                  rows="5"
+                  rows="8"
                   placeholder="What the players can discover—and how flexible the clue can be."
                 ></textarea>
               </label>
-              <label class="field">
-                <span>DM notes</span>
+              <label class="field scene-dm-notes-field">
+                <span>DM notes <em>Your step-by-step runbook</em></span>
                 <textarea
                   v-model="sceneForm.notes"
-                  rows="5"
+                  rows="24"
                   placeholder="NPC motives, checks, contingencies, treasure..."
                 ></textarea>
               </label>
@@ -1821,13 +1821,13 @@ watch(campaignId, initialize)
                 <p>{{ currentScene.read_aloud }}</p>
               </article>
               <div class="stage-notes-grid">
+                <article class="stage-dm-notes">
+                  <span class="content-label">DM notes</span>
+                  <p>{{ currentScene.notes || 'No additional notes.' }}</p>
+                </article>
                 <article>
                   <span class="content-label">Secrets & clues</span>
                   <p>{{ currentScene.secrets || 'No secrets prepared for this scene.' }}</p>
-                </article>
-                <article>
-                  <span class="content-label">DM notes</span>
-                  <p>{{ currentScene.notes || 'No additional notes.' }}</p>
                 </article>
               </div>
               <div class="stage-actions">
@@ -2226,13 +2226,18 @@ watch(campaignId, initialize)
         <div class="import-input-grid">
           <div class="import-source-actions">
             <button
-              v-if="importPurpose === 'create'"
               class="button button--starter button--block"
               type="button"
               :disabled="loadingStarterPack"
-              @click="loadStarterPack"
+              @click="loadStarterPack(importPurpose)"
             >
-              {{ loadingStarterPack ? 'Loading draft...' : 'Load Candlekeep draft' }}
+              {{
+                loadingStarterPack
+                  ? 'Loading draft...'
+                  : importPurpose === 'replace'
+                    ? 'Load latest Candlekeep draft'
+                    : 'Load Candlekeep draft'
+              }}
             </button>
             <label class="button button--quiet button--block file-button">
               Choose JSON file
@@ -3001,6 +3006,22 @@ textarea:focus {
   flex: 1;
 }
 
+.field-row--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.scene-secrets-field textarea {
+  min-height: 13rem;
+  line-height: 1.6;
+}
+
+.scene-dm-notes-field textarea {
+  min-height: 36rem;
+  line-height: 1.65;
+  field-sizing: content;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -3261,7 +3282,7 @@ textarea:focus {
 
 .stage-notes-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
 }
 
@@ -3278,6 +3299,16 @@ textarea:focus {
   font-size: 0.77rem;
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.stage-dm-notes {
+  min-height: 24rem !important;
+}
+
+.stage-dm-notes p {
+  color: var(--dnd-ink);
+  font-size: 0.86rem;
+  line-height: 1.7;
 }
 
 .stage-actions {
