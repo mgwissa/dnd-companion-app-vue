@@ -66,3 +66,6 @@ Session notes also offer **Create recap link**, **Copy link**, and **Revoke link
 ### Journal reading view
 
 Saved notes open in a formatted reading view; owners can switch between Read and Edit without discarding the current draft. New notes open in Edit. Source transcripts stay literal plain text. `MarkdownContent.vue` is the shared GFM renderer for notes, import previews, stopping points, and public recaps; it uses Marked and sanitizes every result with DOMPurify (HTML profile, inline styles and forms excluded). Headings, emphasis, nested lists, links, tables, blockquotes, and fenced code use the existing light/dark theme tokens. Session import has one visible picker backed by a native `hidden` input; scoped `visually-hidden` classes from other views are not available inside this component.
+
+
+Mobile Notes layout: use `minmax(0, 1fr)` for the single-column grid, `min-width: 0` on cards and panel children, and a shrinkable desktop minimum (`min(100%, 250px)`). A bare `1fr` track inherits an automatic minimum from nowrap session titles and can widen the whole page. Mobile titles wrap; long tags and thread text break within their cards, and toolbars wrap instead of widening their panels.

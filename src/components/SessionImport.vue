@@ -127,7 +127,7 @@ async function save() {
 .import-heading h2 { margin: .35rem 0 .5rem; font-size: 1.55rem; }
 .import-heading p { margin: 0; max-width: 45rem; }
 .import-heading > button { flex-shrink: 0; background: var(--dnd-accent); color: var(--dnd-on-accent); border-color: transparent; }
-.review-tabs { display: flex; gap: .35rem; margin: 1rem 0; }
+.review-tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin: 1rem 0; }
 .review-tabs button[aria-pressed=true] { background: var(--dnd-accent); color: var(--dnd-on-accent); border-color: transparent; }
 .import-preview { max-width: 48rem; margin: 2rem auto; }
 .import-resume { padding: 1.25rem; background: var(--dnd-input-bg); border-left: 3px solid var(--dnd-accent-2); border-radius: 8px; margin-bottom: 2rem; }

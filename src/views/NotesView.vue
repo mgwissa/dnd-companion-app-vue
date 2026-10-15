@@ -1058,12 +1058,21 @@ const unsaved = computed(() => {
 
 .notes-page {
   min-height: 100%;
+  width: 100%;
+  min-width: 0;
   padding: var(--notes-space-lg);
   max-width: 1120px;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: var(--notes-space-xl);
+}
+
+/* Flex and grid children must be allowed to shrink below their content width. */
+.notes-page > *,
+.notes-panel > *,
+.editor > * {
+  min-width: 0;
 }
 
 .visually-hidden {
@@ -1269,6 +1278,7 @@ const unsaved = computed(() => {
 }
 .editor-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--notes-space-sm);
 }
 
@@ -1584,11 +1594,13 @@ const unsaved = computed(() => {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
   gap: var(--notes-space-md);
 }
 
 .note-card {
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   border-radius: var(--notes-radius);
@@ -1610,6 +1622,8 @@ const unsaved = computed(() => {
 }
 
 .note-card-button {
+  width: 100%;
+  max-width: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1631,6 +1645,9 @@ const unsaved = computed(() => {
 }
 
 .note-card-title {
+  display: block;
+  width: 100%;
+  min-width: 0;
   font-weight: 600;
   font-size: 0.9375rem;
   line-height: 1.3;
@@ -1646,6 +1663,8 @@ const unsaved = computed(() => {
   gap: var(--notes-space-xs);
 }
 .note-card-tag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
   font-size: 0.6875rem;
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
@@ -1803,7 +1822,45 @@ const unsaved = computed(() => {
     max-width: none;
   }
   .notes-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editor,
+  .notes-panel,
+  .threads-panel {
+    padding: var(--notes-space-md);
+  }
+  .note-card-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    line-height: 1.45;
+  }
+  .thread-label span,
+  .tag,
+  .tag-filter,
+  .context-home {
+    overflow-wrap: anywhere;
+  }
+  .tag,
+  .tag-filter {
+    max-width: 100%;
+  }
+  .context-links,
+  .quick-capture {
+    flex-wrap: wrap;
+  }
+  .quick-capture input {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .editor-toolbar,
+  .editor-actions {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .search-form {
+    min-width: 0;
+    width: 100%;
   }
 }
 </style>
