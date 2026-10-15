@@ -5,6 +5,8 @@ import { showToast, clearToastTimer } from '@/composables/useToast'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
+import SessionImport from '@/components/SessionImport.vue'
+import { isPlayedOn, localPlayedOn } from '@/lib/sessionImport'
 
 type Note = {
   id: string
@@ -14,6 +16,11 @@ type Note = {
   tags: string[]
   isShared: boolean
   userId: string
+  noteType: 'note' | 'session' | 'transcript'
+  playedOn: string | null
+  resumePoint: string
+  parentSessionId: string | null
+  recapShareToken: string | null
 }
 
 interface DbNote {
@@ -26,6 +33,11 @@ interface DbNote {
   is_shared: boolean
   updated_at: string
   created_at: string
+  note_type: 'note' | 'session' | 'transcript'
+  played_on: string | null
+  resume_point: string
+  parent_session_id: string | null
+  recap_share_token: string | null
 }
 
 type CampaignThread = {
@@ -43,6 +55,11 @@ function dbToNote(row: DbNote): Note {
     tags: row.tags ?? [],
     isShared: row.is_shared,
     userId: row.user_id,
+    noteType: row.note_type,
+    playedOn: row.played_on,
+    resumePoint: row.resume_point ?? '',
+    parentSessionId: row.parent_session_id,
+    recapShareToken: row.recap_share_token,
     updatedAt: new Date(row.updated_at).getTime(),
   }
 }
@@ -59,6 +76,10 @@ const title = ref('')
 const body = ref('')
 const editorTags = ref<string[]>([])
 const editorShared = ref(false)
+const editorPlayedOn = ref('')
+const editorResumePoint = ref('')
+const shareBusy = ref(false)
+const recapLink = computed(() => activeNote.value?.recapShareToken ? new URL(`?recap=${activeNote.value.recapShareToken}`, `${window.location.origin}${import.meta.env.BASE_URL}`).href : '')
 
 const searchQuery = ref('')
 const selectedTagFilters = ref<string[]>([])
@@ -162,7 +183,14 @@ watch(() => campaignStore.activeCampaignId, () => {
   fetchThreads()
 })
 
-async function createNote() {
+async function onSessionImported(noteId: string) {
+  await fetchNotes()
+  await fetchThreads()
+  selectNote(noteId)
+  showToast('Session imported', 'success')
+}
+
+async function createNote(asSession = false) {
   if (!campaignStore.activeCampaignId) return
   const noteTitle = newTitle.value.trim() || `Untitled ${notes.value.length + 1}`
   const noteBody = newBody.value
@@ -175,7 +203,9 @@ async function createNote() {
         campaign_id: campaignStore.activeCampaignId,
         title: noteTitle,
         body: noteBody,
-        tags: [],
+        tags: asSession ? ['session'] : [],
+        note_type: asSession ? 'session' : 'note',
+        played_on: asSession ? localPlayedOn() : null,
         is_shared: newShared.value,
         updated_at: new Date().toISOString(),
       })
@@ -206,7 +236,7 @@ async function startSession() {
   newTitle.value = `${dateLabel} Session`
   newBody.value = `## Recap\n\n## Discoveries\n\n## NPCs & locations\n\n## Open threads\n\n`
   newShared.value = true
-  await createNote()
+  await createNote(true)
 }
 
 async function addQuickCapture() {
@@ -225,6 +255,8 @@ function selectNote(id: string) {
   body.value = n.body
   editorTags.value = [...n.tags]
   editorShared.value = n.isShared
+  editorPlayedOn.value = n.playedOn ?? ''
+  editorResumePoint.value = n.resumePoint
 }
 
 async function deleteNote(id: string) {
@@ -282,6 +314,9 @@ async function importNotes(file: File | null) {
         body: n.body ?? '',
         tags: Array.isArray(n.tags) ? n.tags : [],
         is_shared: false,
+        note_type: ['session', 'transcript'].includes(n.noteType ?? '') ? n.noteType : 'note',
+        played_on: isPlayedOn(n.playedOn) ? n.playedOn : null,
+        resume_point: typeof n.resumePoint === 'string' ? n.resumePoint : '',
         updated_at: n.updatedAt ? new Date(n.updatedAt).toISOString() : new Date().toISOString(),
       }))
 
@@ -297,6 +332,9 @@ async function importNotes(file: File | null) {
         title.value = cur.title
         body.value = cur.body
         editorTags.value = [...cur.tags]
+        editorShared.value = cur.isShared
+        editorPlayedOn.value = cur.playedOn ?? ''
+        editorResumePoint.value = cur.resumePoint
       }
     }
     showToast(`Imported ${imported.length} notes`, 'info')
@@ -317,6 +355,10 @@ async function saveActive() {
   const i = notes.value.findIndex((x) => x.id === activeId.value)
   if (i === -1) return
 
+  if (editorPlayedOn.value && !isPlayedOn(editorPlayedOn.value)) {
+    showToast('Enter a valid played date', 'error')
+    return
+  }
   const now = new Date()
   try {
     const { error } = await supabase
@@ -325,7 +367,9 @@ async function saveActive() {
         title: title.value,
         body: body.value,
         tags: [...editorTags.value],
-        is_shared: editorShared.value,
+        is_shared: notes.value[i]!.noteType === 'transcript' ? false : editorShared.value,
+        played_on: editorPlayedOn.value || null,
+        resume_point: editorResumePoint.value,
         updated_at: now.toISOString(),
       })
       .eq('id', activeId.value)
@@ -336,13 +380,45 @@ async function saveActive() {
       title: title.value,
       body: body.value,
       tags: [...editorTags.value],
-      isShared: editorShared.value,
+      isShared: notes.value[i]!.noteType === 'transcript' ? false : editorShared.value,
+      playedOn: editorPlayedOn.value || null,
+      resumePoint: editorResumePoint.value,
       updatedAt: now.getTime(),
     }
     showToast('Saved', 'success')
   } catch (e) {
     console.warn('Failed to save note', e)
     showToast('Failed to save note', 'error')
+  }
+}
+
+async function setRecapLink(enabled: boolean) {
+  const note = activeNote.value
+  if (!note || !isMyNote(note) || note.noteType !== 'session' || shareBusy.value) return
+  if (enabled && unsaved.value) {
+    showToast('Save your reviewed changes before creating a recap link', 'info')
+    return
+  }
+  shareBusy.value = true
+  try {
+    const token = enabled ? crypto.randomUUID() : null
+    const { error } = await supabase.from('notes').update({ recap_share_token: token }).eq('id', note.id)
+    if (error) throw error
+    note.recapShareToken = token
+    showToast(enabled ? 'Recap link ready to share' : 'Recap link revoked', 'success')
+  } catch {
+    showToast('Could not update recap link', 'error')
+  } finally {
+    shareBusy.value = false
+  }
+}
+
+async function copyRecapLink() {
+  try {
+    await navigator.clipboard.writeText(recapLink.value)
+    showToast('Recap link copied', 'success')
+  } catch {
+    showToast('Select and copy the link below', 'info')
   }
 }
 
@@ -455,6 +531,7 @@ const unsaved = computed(() => {
   if (!activeNote.value) return false
   if (activeNote.value.title !== title.value || activeNote.value.body !== body.value) return true
   if (activeNote.value.isShared !== editorShared.value) return true
+  if ((activeNote.value.playedOn ?? '') !== editorPlayedOn.value || activeNote.value.resumePoint !== editorResumePoint.value) return true
   return !tagsEqual(activeNote.value.tags, editorTags.value)
 })
 </script>
@@ -495,6 +572,8 @@ const unsaved = computed(() => {
       <h1 class="page-title">Notes</h1>
       <p class="page-subtitle">Keep the important parts of the story within reach.</p>
     </header>
+
+    <SessionImport @imported="onSessionImported" />
 
     <section class="threads-panel" aria-labelledby="threads-heading">
       <div class="threads-heading-row">
@@ -581,13 +660,13 @@ const unsaved = computed(() => {
           </div>
         </header>
 
-        <div v-if="isMyNote(activeNote!)" class="shared-toggle">
+        <div v-if="isMyNote(activeNote!) && activeNote?.noteType !== 'transcript'" class="shared-toggle">
           <label class="toggle-label">
             <input v-model="editorShared" type="checkbox" class="toggle-check" />
             <span class="toggle-text">{{ editorShared ? 'Shared with campaign' : 'Private note' }}</span>
           </label>
         </div>
-        <div v-else class="shared-badge">Shared by another player</div>
+        <div v-else class="shared-badge">{{ activeNote?.noteType === 'transcript' ? 'Private source transcript' : 'Shared by another player' }}</div>
 
         <div class="editor-tags">
           <span class="editor-tags-label">Tags</span>
@@ -621,6 +700,26 @@ const unsaved = computed(() => {
           </div>
         </div>
 
+        <template v-if="activeNote?.noteType === 'session'">
+          <div v-if="isMyNote(activeNote)" class="recap-sharing">
+            <strong>Share recap link</strong>
+            <p>Anyone with the link can read the saved recap and stopping point. Future saved edits appear at the same link.</p>
+            <template v-if="recapLink">
+              <input class="input" :value="recapLink" readonly aria-label="Public recap link" @focus="($event.target as HTMLInputElement).select()" />
+              <div class="new-note-actions">
+                <button type="button" class="btn btn--secondary" @click="copyRecapLink">Copy link</button>
+                <a :href="recapLink" target="_blank" rel="noopener noreferrer" class="btn btn--outline">Preview recap</a>
+                <button type="button" class="btn btn--outline" :disabled="shareBusy" @click="setRecapLink(false)">Revoke link</button>
+              </div>
+            </template>
+            <button v-else type="button" class="btn btn--secondary" :disabled="shareBusy || unsaved" @click="setRecapLink(true)">Create recap link</button>
+          </div>
+          <label for="session-date">Played date (optional)</label>
+          <input id="session-date" v-model="editorPlayedOn" class="input" type="date" :disabled="!isMyNote(activeNote)" />
+          <label for="session-resume">Where we left off</label>
+          <textarea id="session-resume" v-model="editorResumePoint" class="editor-body-input" rows="5" :readonly="!isMyNote(activeNote)" />
+          <RouterLink v-for="source in notes.filter(n => n.noteType === 'transcript' && n.parentSessionId === activeNote?.id)" :key="source.id" :to="{ path: '/notes', query: { note: source.id } }" @click="selectNote(source.id)">Open private source transcript</RouterLink>
+        </template>
         <label for="editor-body" class="visually-hidden">Note content</label>
         <textarea
           id="editor-body"
@@ -675,7 +774,7 @@ const unsaved = computed(() => {
             @keydown.ctrl.enter.prevent="createNote()"
           />
           <div class="new-note-actions">
-            <button type="button" class="btn btn--primary" @click="createNote">
+            <button type="button" class="btn btn--primary" @click="createNote()">
               Add note
             </button>
             <label class="toggle-label">
@@ -795,6 +894,10 @@ const unsaved = computed(() => {
 </template>
 
 <style scoped>
+.recap-sharing { padding: 1rem; border: 1px solid var(--dnd-muted); border-radius: 8px; }
+.recap-sharing p { color: var(--dnd-muted); line-height: 1.5; }
+.recap-sharing .new-note-actions { margin-top: .75rem; }
+
 .notes-page {
   --notes-space-xs: 0.25rem;
   --notes-space-sm: 0.5rem;

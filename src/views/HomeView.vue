@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
 import { showToast } from '@/composables/useToast'
+import { localPlayedOn } from '@/lib/sessionImport'
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
@@ -30,9 +31,7 @@ const activityItems = computed(() =>
   })),
 )
 const dashboardLoading = ref(false)
-const latestSession = computed(
-  () => recentNotes.value.find((note) => /session/i.test(note.title)) ?? null,
-)
+const latestSession = ref<{ id: string; title: string; body: string; played_on: string | null; resume_point: string } | null>(null)
 const sessionMode = ref(false)
 const sessionNote = ref<{ id: string; title: string; body: string } | null>(null)
 const captureType = ref('Discovery')
@@ -50,17 +49,19 @@ function formatUpdatedAt(value: string) {
 }
 
 async function loadCommandCenter() {
+  latestSession.value = null
   if (!activeCampaign.value) return
   dashboardLoading.value = true
   try {
     const campaignId = activeCampaign.value.id
-    const [membersResult, notesResult, partyResult, threadsResult] = await Promise.all([
+    const [membersResult, notesResult, partyResult, threadsResult, sessionResult] = await Promise.all([
       campaignStore.fetchMembers(campaignId),
       supabase
         .from('notes')
         .select('id, title, body, updated_at')
         .eq('campaign_id', campaignId)
         .order('updated_at', { ascending: false })
+        .neq('note_type', 'transcript')
         .limit(4),
       supabase
         .from('characters')
@@ -77,11 +78,17 @@ async function loadCommandCenter() {
         .eq('is_done', false)
         .order('created_at', { ascending: false })
         .limit(5),
+      supabase.from('notes').select('id, title, body, played_on, resume_point')
+        .eq('campaign_id', campaignId).eq('note_type', 'session')
+        .order('played_on', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
     void membersResult
     if (notesResult.error) throw notesResult.error
     if (partyResult.error) throw partyResult.error
     if (threadsResult.error) throw threadsResult.error
+    if (sessionResult.error) throw sessionResult.error
+    latestSession.value = sessionResult.data
     recentNotes.value = notesResult.data ?? []
     party.value = partyResult.data ?? []
     openThreads.value = threadsResult.data ?? []
@@ -108,7 +115,7 @@ async function loadCommandCenter() {
 async function openSessionMode(noteId?: string) {
   if (!activeCampaign.value || !auth.user) return
   if (noteId) {
-    const note = recentNotes.value.find((item) => item.id === noteId)
+    const note = latestSession.value?.id === noteId ? latestSession.value : recentNotes.value.find((item) => item.id === noteId)
     if (note) sessionNote.value = { id: note.id, title: note.title, body: note.body }
   } else {
     const dateLabel = new Intl.DateTimeFormat(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' }).format(new Date())
@@ -119,7 +126,9 @@ async function openSessionMode(noteId?: string) {
         campaign_id: activeCampaign.value.id,
         title: `${dateLabel} Session`,
         body: '## Recap\n\n## Discoveries\n\n## NPCs & locations\n\n## Open threads\n\n',
-        tags: [],
+        tags: ['session'],
+        note_type: 'session',
+        played_on: localPlayedOn(),
         is_shared: true,
         updated_at: new Date().toISOString(),
       })
@@ -279,6 +288,14 @@ watch(
         <strong class="intel-value invite-value">{{ activeCampaign.invite_code }}</strong>
         <span class="intel-caption">share with your party</span>
       </article>
+    </section>
+
+    <section v-if="latestSession?.resume_point" class="resume-panel" aria-labelledby="resume-heading">
+      <span class="panel-kicker">Next time</span>
+      <h2 id="resume-heading">Where we left off</h2>
+      <strong>{{ latestSession.title }}</strong>
+      <p>{{ latestSession.resume_point }}</p>
+      <RouterLink :to="{ path: '/notes', query: { note: latestSession.id } }" class="panel-link">Read session notes ↗</RouterLink>
     </section>
 
     <section class="snapshot-grid" aria-label="Campaign snapshot">
@@ -490,6 +507,10 @@ watch(
 </template>
 
 <style scoped>
+.resume-panel { margin-bottom: 1.5rem; padding: 1.5rem; background: var(--dnd-elevated); color: var(--dnd-ink); border: 1px solid var(--dnd-muted); border-top: 3px solid var(--dnd-accent-2); border-radius: 12px; }
+.resume-panel h2 { font-family: 'Spectral', serif; margin: .5rem 0; }
+.resume-panel p { white-space: pre-wrap; line-height: 1.65; }
+
 .command-center {
   max-width: 1100px;
   margin: 0 auto;

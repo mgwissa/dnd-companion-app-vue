@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
+import LandingView from '../views/LandingView.vue'
 import LoginView from '@/views/LoginView.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
@@ -19,7 +19,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: LandingView,
     },
     {
       path: '/login',
@@ -106,6 +106,8 @@ function waitForAuthReady(auth: ReturnType<typeof useAuthStore>) {
 }
 
 router.beforeEach(async (to) => {
+  // Root query links load directly on GitHub Pages, including a fresh visit.
+  if (to.name === 'home' && typeof to.query.recap === 'string') return true
   const auth = useAuthStore()
 
   await waitForAuthReady(auth)
