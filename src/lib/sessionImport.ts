@@ -22,6 +22,11 @@ export const sessionSections = [
   ['uncertainties', 'Needs confirmation'],
 ] as const
 
+// Recording references belong in source transcripts, not the reviewed story.
+export function removeSessionTimeReferences(content: string): string {
+  return content.replace(/[ \t]*\[\d{1,2}:\d{2}(?::\d{2})?(?:[ \t]*[–—-][ \t]*\d{1,2}:\d{2}(?::\d{2})?)?\]/g, '')
+}
+
 export function isPlayedOn(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const date = new Date(`${value}T12:00:00Z`)
@@ -56,10 +61,10 @@ export function parseSessionPack(value: unknown): SessionPack {
     version: 1, kind: 'dnd-session',
     id: (input.id as string).trim(), title: (input.title as string).trim(),
     playedOn: (input.playedOn as string | null) ?? null,
-    resumePoint: (input.resumePoint as string).trim(), recap: (input.recap as string).trim(),
-    discoveries: (input.discoveries as string) ?? '',
-    npcsAndLocations: (input.npcsAndLocations as string) ?? '',
-    loot: (input.loot as string) ?? '', uncertainties: (input.uncertainties as string) ?? '',
+    resumePoint: removeSessionTimeReferences((input.resumePoint as string).trim()), recap: removeSessionTimeReferences((input.recap as string).trim()),
+    discoveries: removeSessionTimeReferences((input.discoveries as string) ?? ''),
+    npcsAndLocations: removeSessionTimeReferences((input.npcsAndLocations as string) ?? ''),
+    loot: removeSessionTimeReferences((input.loot as string) ?? ''), uncertainties: removeSessionTimeReferences((input.uncertainties as string) ?? ''),
     transcript: (input.transcript as string) ?? '',
     threads: input.threads.filter((item) => item.trim()).map((item) => item.trim()),
   }

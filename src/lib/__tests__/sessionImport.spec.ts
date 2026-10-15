@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isPlayedOn, parseSessionPack, sessionBody } from '../sessionImport'
+import { isPlayedOn, parseSessionPack, sessionBody, removeSessionTimeReferences } from '../sessionImport'
 
 const valid = { version: 1, kind: 'dnd-session', id: 'river-1', title: 'River fight', playedOn: null,
   resumePoint: 'Gor is next; confirm with DM.', recap: 'Darabeth is safe.', threads: ['Find the aboleth'] }
@@ -28,5 +28,17 @@ describe('session imports', () => {
     expect(body).not.toContain('## Discoveries')
     expect(body).toContain('## Needs confirmation\n\nPotion holders unconfirmed.')
     expect(body).toContain('- Find the aboleth')
+  })
+})
+
+describe('session time references', () => {
+  it('removes recording citations while preserving story times and source transcripts', () => {
+    const source = '00:01:23 Gor\nWe rest until 17:00.'
+    const pack = parseSessionPack({ ...valid, recap: 'Darabeth is safe. [00:42–00:44]\nMeet at 17:00.',
+      resumePoint: 'Gor is next. [02:52:00]', transcript: source })
+    expect(pack.recap).toBe('Darabeth is safe.\nMeet at 17:00.')
+    expect(pack.resumePoint).toBe('Gor is next.')
+    expect(pack.transcript).toBe(source)
+    expect(removeSessionTimeReferences('Loot [01:03 - 01:05]. [P2] Follow up.')).toBe('Loot. [P2] Follow up.')
   })
 })

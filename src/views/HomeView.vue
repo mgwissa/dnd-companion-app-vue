@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
 import { showToast } from '@/composables/useToast'
-import { localPlayedOn } from '@/lib/sessionImport'
+import { localPlayedOn, removeSessionTimeReferences } from '@/lib/sessionImport'
 
 const auth = useAuthStore()
 const campaignStore = useCampaignStore()
@@ -58,7 +58,7 @@ async function loadCommandCenter() {
       campaignStore.fetchMembers(campaignId),
       supabase
         .from('notes')
-        .select('id, title, body, updated_at')
+        .select('id, title, body, updated_at, note_type')
         .eq('campaign_id', campaignId)
         .order('updated_at', { ascending: false })
         .neq('note_type', 'transcript')
@@ -88,14 +88,14 @@ async function loadCommandCenter() {
     if (partyResult.error) throw partyResult.error
     if (threadsResult.error) throw threadsResult.error
     if (sessionResult.error) throw sessionResult.error
-    latestSession.value = sessionResult.data
-    recentNotes.value = notesResult.data ?? []
+    latestSession.value = sessionResult.data ? { ...sessionResult.data, body: removeSessionTimeReferences(sessionResult.data.body), resume_point: removeSessionTimeReferences(sessionResult.data.resume_point) } : null
+    recentNotes.value = (notesResult.data ?? []).map(note => ({ ...note, body: note.note_type === 'session' ? removeSessionTimeReferences(note.body) : note.body }))
     party.value = partyResult.data ?? []
     openThreads.value = threadsResult.data ?? []
     if (isDm.value) {
       const { data, error } = await supabase
         .from('notes')
-        .select('id, title, body, updated_at')
+        .select('id, title, body, updated_at, note_type')
         .eq('campaign_id', campaignId)
         .eq('is_shared', false)
         .order('updated_at', { ascending: false })

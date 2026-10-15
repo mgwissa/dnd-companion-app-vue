@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import MarkdownContent from '@/components/MarkdownContent.vue'
 import { supabase } from '@/lib/supabase'
+import { removeSessionTimeReferences } from '@/lib/sessionImport'
 
 const props = defineProps<{ token: string }>()
 type Recap = { title: string; body: string; resume_point: string; played_on: string | null }
@@ -20,7 +21,8 @@ watch(() => props.token, async token => {
     const { data, error: failure } = await supabase.rpc('get_shared_recap', { p_token: token })
     if (props.token !== token) return
     if (failure) throw failure
-    recap.value = (data?.[0] as Recap | undefined) ?? null
+    const entry = data?.[0] as Recap | undefined
+    recap.value = entry ? { ...entry, body: removeSessionTimeReferences(entry.body), resume_point: removeSessionTimeReferences(entry.resume_point) } : null
     if (!recap.value) error.value = 'This recap link is unavailable or has been revoked.'
   } catch {
     if (props.token === token) error.value = 'Could not load this recap. Please try again.'

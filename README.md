@@ -69,3 +69,5 @@ Saved notes open in a formatted reading view; owners can switch between Read and
 
 
 Mobile Notes layout: use `minmax(0, 1fr)` for the single-column grid, `min-width: 0` on cards and panel children, and a shrinkable desktop minimum (`min(100%, 250px)`). A bare `1fr` track inherits an automatic minimum from nowrap session titles and can widen the whole page. Mobile titles wrap; long tags and thread text break within their cards, and toolbars wrap instead of widening their panels.
+
+Session imports and existing session reading/editing views strip bracketed recording-time references (such as `[00:42–00:44]`); public recaps and the hub apply the same cleanup. Existing stored recaps are cleaned when read and persist that cleanup on the next normal save. Source transcript text and non-session notes remain unchanged.

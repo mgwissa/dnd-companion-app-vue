@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
 import SessionImport from '@/components/SessionImport.vue'
 import MarkdownContent from '@/components/MarkdownContent.vue'
-import { isPlayedOn, localPlayedOn } from '@/lib/sessionImport'
+import { isPlayedOn, localPlayedOn, removeSessionTimeReferences } from '@/lib/sessionImport'
 
 type Note = {
   id: string
@@ -52,13 +52,13 @@ function dbToNote(row: DbNote): Note {
   return {
     id: row.id,
     title: row.title,
-    body: row.body,
+    body: row.note_type === 'session' ? removeSessionTimeReferences(row.body) : row.body,
     tags: row.tags ?? [],
     isShared: row.is_shared,
     userId: row.user_id,
     noteType: row.note_type,
     playedOn: row.played_on,
-    resumePoint: row.resume_point ?? '',
+    resumePoint: row.note_type === 'session' ? removeSessionTimeReferences(row.resume_point ?? '') : row.resume_point ?? '',
     parentSessionId: row.parent_session_id,
     recapShareToken: row.recap_share_token,
     updatedAt: new Date(row.updated_at).getTime(),
