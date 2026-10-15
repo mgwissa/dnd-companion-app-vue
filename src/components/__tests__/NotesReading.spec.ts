@@ -7,12 +7,12 @@ vi.mock('vue-router', () => ({ useRoute: () => ({ query: { note: 'note-1' } }),
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { id: 'user-1' } }) }))
 vi.mock('@/stores/campaign', () => ({ useCampaignStore: () => ({ activeCampaignId: 'campaign-1', activeCampaign: { name: 'Dungeon campaign' } }) }))
 vi.mock('@/lib/supabase', () => ({ supabase: { from: (table: string) => {
-  const query = { select: () => query, eq: () => query, order: () => query,
-    then: (resolve: (value: unknown) => void) => resolve({ error: null, data: table === 'notes' ? [{
+  const result = Promise.resolve({ error: null, data: table === 'notes' ? [{
       id: 'note-1', user_id: 'user-1', campaign_id: 'campaign-1', title: 'Riverbank', body: '## Recap\n\n**Darabeth** is safe.',
       tags: ['session'], is_shared: false, note_type: 'session', played_on: null, resume_point: 'Gor is next.',
       parent_session_id: null, recap_share_token: null, updated_at: '2026-10-15T12:00:00Z', created_at: '2026-10-15T12:00:00Z',
-    }] : [] }) }
+    }] : [] })
+  const query = Object.assign(result, { select: () => query, eq: () => query, order: () => query })
   return query
 } } }))
 
