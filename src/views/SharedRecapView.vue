@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import { supabase } from '@/lib/supabase'
 
 const props = defineProps<{ token: string }>()
@@ -7,14 +8,6 @@ type Recap = { title: string; body: string; resume_point: string; played_on: str
 const recap = ref<Recap | null>(null)
 const loading = ref(false)
 const error = ref('')
-const blocks = computed(() => (recap.value?.body ?? '').split(/\n\s*\n/).filter(Boolean).map(text => {
-  const heading = /^#{1,3} (.+)$/.exec(text.trim())
-  if (heading) return { kind: 'heading', text: heading[1]!, lines: [] }
-  const lines = text.split('\n')
-  if (lines.every(line => line.startsWith('- '))) return { kind: 'list', text: '', lines: lines.map(line => line.slice(2)) }
-  return { kind: 'paragraph', text, lines: [] }
-}))
-
 watch(() => props.token, async token => {
   recap.value = null
   error.value = ''
@@ -47,24 +40,19 @@ watch(() => props.token, async token => {
       <time v-if="recap.played_on" :datetime="recap.played_on">Played {{ recap.played_on }}</time>
       <section v-if="recap.resume_point" class="resume-point">
         <h2>Where we left off</h2>
-        <p>{{ recap.resume_point }}</p>
+        <MarkdownContent :content="recap.resume_point" />
       </section>
-      <template v-for="(block, index) in blocks" :key="index">
-        <h2 v-if="block.kind === 'heading'">{{ block.text }}</h2>
-        <ul v-else-if="block.kind === 'list'"><li v-for="(line, i) in block.lines" :key="i">{{ line }}</li></ul>
-        <p v-else>{{ block.text }}</p>
-      </template>
+      <MarkdownContent :content="recap.body" />
     </template>
   </article>
 </template>
 
 <style scoped>
-.shared-recap { max-width: 48rem; margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); color: var(--dnd-ink); background: var(--dnd-elevated); border-radius: 12px; overflow-wrap: anywhere; }
+.shared-recap { max-width: 48rem; margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); color: var(--dnd-ink); background: var(--dnd-elevated); border: 1px solid color-mix(in srgb, var(--dnd-muted) 22%, transparent); border-top: 3px solid var(--dnd-accent-2); border-radius: 12px; overflow-wrap: anywhere; }
 h1, h2 { font-family: 'Spectral', serif; line-height: 1.25; }
 h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin: .5rem 0 1rem; }
 h2 { margin: 1.8rem 0 .7rem; }
-p, li { line-height: 1.8; white-space: pre-wrap; }
-li { margin: .5rem 0; }
+p { line-height: 1.8; }
 .recap-kicker, time { color: var(--dnd-muted); }
 .resume-point { margin: 1.5rem 0; padding: 1rem 1.25rem; background: var(--dnd-input-bg); border-left: 3px solid var(--dnd-accent-2); border-radius: 6px; }
 .resume-point h2 { margin-top: 0; }

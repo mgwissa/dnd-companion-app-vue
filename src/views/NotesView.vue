@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/auth'
 import { useCampaignStore } from '@/stores/campaign'
 import SessionImport from '@/components/SessionImport.vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import { isPlayedOn, localPlayedOn } from '@/lib/sessionImport'
 
 type Note = {
@@ -70,6 +71,7 @@ const route = useRoute()
 
 const notes = ref<Note[]>([])
 const activeId = ref<string | null>(null)
+const isEditing = ref(false)
 const loading = ref(false)
 
 const title = ref('')
@@ -216,6 +218,7 @@ async function createNote(asSession = false) {
     const n = dbToNote(data as DbNote)
     notes.value.unshift(n)
     selectNote(n.id)
+    isEditing.value = true
     newTitle.value = ''
     newBody.value = ''
     newShared.value = false
@@ -251,6 +254,7 @@ function selectNote(id: string) {
   const n = notes.value.find((x) => x.id === id)
   if (!n) return
   activeId.value = id
+  isEditing.value = false
   title.value = n.title
   body.value = n.body
   editorTags.value = [...n.tags]
@@ -462,7 +466,15 @@ function formatDate(ms: number): string {
   })
 }
 
+function handleSaveKey(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.code === 'KeyS')) {
+    e.preventDefault()
+    saveActive()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', handleSaveKey)
   await fetchNotes()
   await fetchThreads()
   const requestedNote = typeof route.query.note === 'string' ? route.query.note : null
@@ -472,18 +484,11 @@ onMounted(async () => {
   } else if (route.query.start === 'session') {
     await startSession()
   }
-  const handler = (e: KeyboardEvent) => {
-    const isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.code === 'KeyS')
-    if (isSave) {
-      e.preventDefault()
-      saveActive()
-    }
-  }
-  window.addEventListener('keydown', handler)
-  onBeforeUnmount(() => window.removeEventListener('keydown', handler))
+
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleSaveKey)
   clearToastTimer()
 })
 
@@ -614,11 +619,17 @@ const unsaved = computed(() => {
     </section>
 
     <!-- Editor / New note — always at the top -->
-    <article class="editor" aria-label="Note editor">
+    <article class="editor" :class="{ 'editor--reading': activeId && !isEditing }" aria-label="Campaign journal entry">
       <template v-if="activeId">
         <header class="editor-header">
-          <label for="editor-title" class="visually-hidden">Note title</label>
+          <div v-if="!isEditing" class="journal-heading">
+            <p class="page-kicker">{{ activeNote?.noteType === 'session' ? 'Session chronicle' : activeNote?.noteType === 'transcript' ? 'Source archive' : 'Campaign journal' }}</p>
+            <h2>{{ title || 'Untitled note' }}</h2>
+            <span v-if="editorPlayedOn" class="journal-date">Played {{ editorPlayedOn }}</span>
+          </div>
+          <label v-if="isEditing" for="editor-title" class="visually-hidden">Note title</label>
           <input
+            v-if="isEditing"
             id="editor-title"
             v-model="title"
             type="text"
@@ -630,7 +641,11 @@ const unsaved = computed(() => {
               {{ unsaved ? 'Unsaved changes' : 'Saved' }}
             </span>
             <div class="editor-actions">
-              <template v-if="isMyNote(activeNote!)">
+              <div v-if="isMyNote(activeNote!)" class="journal-view-toggle" role="group" aria-label="Note view">
+                <button type="button" :aria-pressed="!isEditing" @click="isEditing = false">Read</button>
+                <button type="button" :aria-pressed="isEditing" @click="isEditing = true">Edit</button>
+              </div>
+              <template v-if="isMyNote(activeNote!) && unsaved">
                 <button
                   type="button"
                   class="btn btn--secondary"
@@ -648,7 +663,7 @@ const unsaved = computed(() => {
                 Close
               </button>
               <button
-                v-if="isMyNote(activeNote!)"
+                v-if="isEditing && isMyNote(activeNote!)"
                 type="button"
                 class="btn btn--danger"
                 aria-label="Delete this note"
@@ -660,15 +675,15 @@ const unsaved = computed(() => {
           </div>
         </header>
 
-        <div v-if="isMyNote(activeNote!) && activeNote?.noteType !== 'transcript'" class="shared-toggle">
+        <div v-if="isEditing && isMyNote(activeNote!) && activeNote?.noteType !== 'transcript'" class="shared-toggle">
           <label class="toggle-label">
             <input v-model="editorShared" type="checkbox" class="toggle-check" />
             <span class="toggle-text">{{ editorShared ? 'Shared with campaign' : 'Private note' }}</span>
           </label>
         </div>
-        <div v-else class="shared-badge">{{ activeNote?.noteType === 'transcript' ? 'Private source transcript' : 'Shared by another player' }}</div>
+        <div v-else class="shared-badge">{{ activeNote?.noteType === 'transcript' ? 'Private source transcript' : isMyNote(activeNote!) ? (editorShared ? 'Shared with campaign' : 'Private note') : 'Shared by another player' }}</div>
 
-        <div class="editor-tags">
+        <div v-if="isEditing || editorTags.length" class="editor-tags">
           <span class="editor-tags-label">Tags</span>
           <div class="editor-tags-list">
             <span
@@ -678,6 +693,7 @@ const unsaved = computed(() => {
             >
               {{ t }}
               <button
+                v-if="isEditing"
                 type="button"
                 class="tag-remove"
                 :aria-label="`Remove tag ${t}`"
@@ -687,6 +703,7 @@ const unsaved = computed(() => {
               </button>
             </span>
             <input
+              v-if="isEditing"
               v-model="newTagInput"
               type="text"
               class="tag-input"
@@ -694,14 +711,15 @@ const unsaved = computed(() => {
               aria-label="Add tag"
               @keydown.enter.prevent="addTagFromInput()"
             />
-            <button type="button" class="btn btn--small" @click="addTagFromInput">
+            <button v-if="isEditing" type="button" class="btn btn--small" @click="addTagFromInput">
               Add
             </button>
           </div>
         </div>
 
         <template v-if="activeNote?.noteType === 'session'">
-          <div v-if="isMyNote(activeNote)" class="recap-sharing">
+          <details v-if="isMyNote(activeNote)" class="recap-sharing">
+            <summary>Share this session</summary>
             <strong>Share recap link</strong>
             <p>Anyone with the link can read the saved recap and stopping point. Future saved edits appear at the same link.</p>
             <template v-if="recapLink">
@@ -713,15 +731,28 @@ const unsaved = computed(() => {
               </div>
             </template>
             <button v-else type="button" class="btn btn--secondary" :disabled="shareBusy || unsaved" @click="setRecapLink(true)">Create recap link</button>
-          </div>
+          </details>
+          <template v-if="isEditing">
           <label for="session-date">Played date (optional)</label>
           <input id="session-date" v-model="editorPlayedOn" class="input" type="date" :disabled="!isMyNote(activeNote)" />
           <label for="session-resume">Where we left off</label>
           <textarea id="session-resume" v-model="editorResumePoint" class="editor-body-input" rows="5" :readonly="!isMyNote(activeNote)" />
+          </template>
+          <aside v-else-if="editorResumePoint" class="journal-resume">
+            <span class="page-kicker">Next session</span>
+            <h3>Where we left off</h3>
+            <MarkdownContent :content="editorResumePoint" />
+          </aside>
           <RouterLink v-for="source in notes.filter(n => n.noteType === 'transcript' && n.parentSessionId === activeNote?.id)" :key="source.id" :to="{ path: '/notes', query: { note: source.id } }" @click="selectNote(source.id)">Open private source transcript</RouterLink>
         </template>
-        <label for="editor-body" class="visually-hidden">Note content</label>
+        <div v-if="!isEditing" class="journal-body">
+          <pre v-if="activeNote?.noteType === 'transcript'" class="journal-transcript">{{ body }}</pre>
+          <MarkdownContent v-else-if="body.trim()" :content="body" />
+          <p v-else class="journal-empty">This page of the story is still unwritten.</p>
+        </div>
+        <label v-if="isEditing" for="editor-body" class="visually-hidden">Note content</label>
         <textarea
+          v-if="isEditing"
           id="editor-body"
           v-model="body"
           class="editor-body-input"
@@ -894,6 +925,21 @@ const unsaved = computed(() => {
 </template>
 
 <style scoped>
+.editor--reading { border-top-color: var(--dnd-accent-2); }
+.journal-heading { flex: 1; min-width: 0; }
+.journal-heading .page-kicker { margin-bottom: .65rem; }
+.journal-heading h2 { font-family: 'Spectral', serif; font-size: clamp(1.65rem, 3.5vw, 2.4rem); line-height: 1.25; color: var(--dnd-ink); margin: 0 0 .75rem; text-wrap: balance; overflow-wrap: anywhere; }
+.journal-date { color: var(--dnd-muted); font-size: .85rem; }
+.journal-body { width: 100%; max-width: 48rem; margin: .5rem auto 1.5rem; }
+.journal-resume { width: 100%; max-width: 48rem; box-sizing: border-box; margin: .75rem auto; padding: 1.4rem; border-inline-start: 3px solid var(--dnd-accent-2); border-radius: 8px; background: var(--dnd-input-bg); }
+.journal-resume h3 { font-family: 'Spectral', serif; font-size: 1.4rem; margin: .35rem 0 1rem; }
+.journal-view-toggle { display: flex; padding: .2rem; border: 1px solid color-mix(in srgb, var(--dnd-muted) 30%, transparent); border-radius: 8px; background: var(--dnd-input-bg); }
+.journal-view-toggle button { border: 0; border-radius: 5px; padding: .4rem .8rem; color: var(--dnd-muted); background: transparent; font: inherit; font-size: .85rem; cursor: pointer; }
+.journal-view-toggle button[aria-pressed=true] { background: var(--dnd-elevated); color: var(--dnd-ink); box-shadow: 0 1px 5px #0002; }
+.journal-transcript { white-space: pre-wrap; overflow-wrap: anywhere; font: .9rem/1.8 ui-monospace, monospace; color: var(--dnd-muted); }
+.journal-empty { padding: 2rem 0; color: var(--dnd-muted); font-style: italic; }
+.recap-sharing summary { cursor: pointer; color: var(--dnd-accent); font-size: .9rem; font-weight: 600; }
+
 .recap-sharing { padding: 1rem; border: 1px solid var(--dnd-muted); border-radius: 8px; }
 .recap-sharing p { color: var(--dnd-muted); line-height: 1.5; }
 .recap-sharing .new-note-actions { margin-top: .75rem; }

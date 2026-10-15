@@ -61,3 +61,8 @@ The preview lets the user edit all sections and suggested thread titles, choose 
 
 
 Session notes also offer **Create recap link**, **Copy link**, and **Revoke link**. The root URL `?recap=<random UUID>` works on a fresh GitHub Pages visit without a sign-in or campaign membership. `LandingView` selects `SharedRecapView` for that query; it renders plain text headings, paragraphs, and lists without HTML injection. The `get_shared_recap` RPC uses a narrow security-definer projection (title, body, stopping point, played date only); it never returns source notes or account data. The link is separate from campaign sharing and follows saved recap edits. `notes.recap_share_token` can be set only through normal owner RLS; a constraint limits tokens to session notes. Revocation clears the token, making subsequent reads unavailable. No broad anonymous note SELECT policy is added.
+
+
+### Journal reading view
+
+Saved notes open in a formatted reading view; owners can switch between Read and Edit without discarding the current draft. New notes open in Edit. Source transcripts stay literal plain text. `MarkdownContent.vue` is the shared GFM renderer for notes, import previews, stopping points, and public recaps; it uses Marked and sanitizes every result with DOMPurify (HTML profile, inline styles and forms excluded). Headings, emphasis, nested lists, links, tables, blockquotes, and fenced code use the existing light/dark theme tokens. Session import has one visible picker backed by a native `hidden` input; scoped `visually-hidden` classes from other views are not available inside this component.
